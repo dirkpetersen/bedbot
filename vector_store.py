@@ -16,12 +16,23 @@ from typing import List, Dict, Tuple, Optional, Any
 logger = logging.getLogger(__name__)
 
 try:
+    # Configure FAISS logging to only show in debug mode
+    import os
+    debug_mode = os.getenv('DEBUG', '0').lower() in ('1', 'true', 'yes', 'on')
+    
+    if not debug_mode:
+        # Suppress FAISS info/warning messages unless in debug mode
+        faiss_logger = logging.getLogger('faiss')
+        faiss_logger.setLevel(logging.ERROR)
+    
     import faiss
     import numpy as np
     from sentence_transformers import SentenceTransformer
     FAISS_AVAILABLE = True
     VECTOR_STORE_AVAILABLE = True
-    logger.info("FAISS and SentenceTransformers loaded successfully")
+    
+    if debug_mode:
+        logger.info("FAISS and SentenceTransformers loaded successfully")
 except ImportError as e:
     FAISS_AVAILABLE = False
     VECTOR_STORE_AVAILABLE = False
