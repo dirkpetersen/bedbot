@@ -708,7 +708,8 @@ class FAISSVectorStore:
                     chunks_added += 1
                     
                     # Safety check: prevent memory issues with too many parts (only if max_chars is set)
-                    if max_chars and len(context_parts) > 2000:  # Higher limit, only when char limits active
+                    # Skip this check when max_chars=None (Smart Extractor mode)
+                    if max_chars is not None and len(context_parts) > 2000:  # Higher limit, only when char limits active
                         logger.warning(f"⚠️ Reached maximum context parts limit (2000) for {source}")
                         break
                 

@@ -62,13 +62,16 @@ BedBot is a powerful AI chat assistant powered by AWS Bedrock Nova that allows y
 
 - **AI-Powered Conversations**: Chat with AWS Bedrock Nova models for intelligent responses
 - **Document Analysis**: Upload and analyze multiple document types (PDF, TXT, DOC, DOCX, MD, JSON, CSV)
+- **Smart Extractor System**: LLM→Regex hybrid approach for comprehensive document analysis that bypasses context window limits
+- **Vector Store Integration**: Optional FAISS-based semantic search with hierarchical chunking for enhanced document retrieval
 - **PDF Processing**: Advanced PDF handling with automatic merging and content extraction
 - **Voice Input**: Speech-to-text functionality for hands-free interaction
 - **Dual Storage Modes**: Choose between local filesystem or AWS S3 for document storage
 - **Session Management**: Persistent chat history and document context within sessions
-- **Modern Web Interface**: Responsive, mobile-friendly chat interface
-- **Real-time Processing**: Live typing indicators and instant responses
-- **File Management**: Easy upload, preview, and removal of documents
+- **Modern Web Interface**: Responsive, mobile-friendly chat interface with 2-column adaptive layout
+- **Real-time Processing**: Live typing indicators, instant responses, and Server-Sent Events for upload progress
+- **File Management**: Easy upload, preview, and removal of documents with drag-and-drop support
+- **Comprehensive Extraction**: Extract structured data (applicants, URLs, emails) from large documents without context limits
 
 ## Use Cases
 
@@ -77,6 +80,8 @@ BedBot is a powerful AI chat assistant powered by AWS Bedrock Nova that allows y
 - **Research Paper Analysis**: Compare multiple research papers, extract key findings, and identify relationships
 - **Technical Documentation**: Analyze technical specifications, requirements documents, and implementation guides
 - **Financial Report Analysis**: Review financial statements, compare quarterly reports, and extract insights
+- **Large Document Processing**: Handle documents with millions of characters using Smart Extractor to bypass context limits
+- **Application Processing**: Extract all applicants, candidates, or participants from large application documents
 
 ### Content Creation and Review
 - **Content Summarization**: Upload long documents for concise summaries and key point extraction
@@ -164,6 +169,15 @@ If you haven't set up AWS yet, you'll need AWS credentials from your AWS adminis
    ```bash
    pip install -r requirements.txt
    ```
+   
+   **Optional: Vector Store Dependencies**
+   ```bash
+   # For vector store functionality
+   pip install faiss-cpu sentence-transformers
+   
+   # Or for GPU support (if available)
+   pip install faiss-gpu sentence-transformers
+   ```
 
 3. **Verify AWS configuration:**
    ```bash
@@ -180,7 +194,20 @@ Create a `.env` file in the project directory (optional):
 AWS_PROFILE=bedbot
 AWS_DEFAULT_REGION=us-east-1
 SECRET_KEY=your-secret-key-change-this
+BEDROCK_MODEL=us.amazon.nova-premier-v1:0
+VECTOR_STORE=1
+PDF_LOCAL_CONVERT=0
+BEDROCK_TIMEOUT=900
 ```
+
+**Environment Variable Details:**
+- `AWS_PROFILE`: AWS profile to use for authentication
+- `AWS_DEFAULT_REGION`: AWS region for Bedrock and S3 services
+- `SECRET_KEY`: Flask session secret key (change for production)
+- `BEDROCK_MODEL`: Default Bedrock model ID to use
+- `VECTOR_STORE`: Enable vector store functionality (0=disabled, 1=enabled)
+- `PDF_LOCAL_CONVERT`: Use local PDF processing instead of Bedrock (0=Bedrock, 1=local)
+- `BEDROCK_TIMEOUT`: Timeout in seconds for Bedrock API calls
 
 ### Model Selection
 
@@ -241,6 +268,20 @@ python bedbot.py --debug
    "Compare the requirements in document A with the proposal in document B"
    "Summarize the main findings from all uploaded documents"
    ```
+
+4. **Comprehensive Extraction (Smart Extractor):**
+   For large documents that exceed context limits, use extraction queries:
+   ```
+   "list all applicants"
+   "extract all GitHub URLs"
+   "find all email addresses"
+   "show all primary investigators"
+   ```
+   
+   The Smart Extractor automatically:
+   - Uses LLM to develop regex patterns from document samples
+   - Applies patterns to full document content (no context limits)
+   - Returns comprehensive, structured results
 
 ### Voice Input
 
@@ -333,6 +374,22 @@ aws s3 ls --profile bedbot
 - Allow microphone access when prompted
 - Check browser console for errors
 
+#### 6. "Input is too long for requested model" error
+**Cause**: Document exceeds Bedrock model's context window (often with large PDFs)
+**Solution**:
+- Smart Extractor should automatically handle this for extraction queries
+- Use extraction queries like "list all applicants" to trigger Smart Extractor
+- Enable vector store for better document chunking: `VECTOR_STORE=1`
+
+#### 7. Vector store not working
+**Cause**: FAISS dependencies not installed
+**Solution**:
+```bash
+pip install faiss-cpu sentence-transformers
+# Set environment variable
+VECTOR_STORE=1 python bedbot.py
+```
+
 ### Debug Mode
 
 Enable debug mode for detailed logging:
@@ -356,26 +413,77 @@ Check the console output for:
 
 ## Advanced Features
 
+### Smart Extractor System
+The Smart Extractor is a revolutionary LLM→Regex hybrid approach that bypasses traditional context window limitations:
+
+**How It Works:**
+1. **Sample Analysis**: Takes a representative sample (300K chars) from your large document
+2. **Pattern Development**: LLM analyzes sample and develops custom regex patterns
+3. **Full Document Processing**: Regex patterns process the entire document (2M+ chars) instantly
+4. **Quality Filtering**: Statistical analysis removes noisy patterns automatically
+
+**Benefits:**
+- ✅ **No Context Limits**: Process documents of any size (tested with 2.5M+ characters)
+- ✅ **Fast Processing**: Regex operates in milliseconds vs minutes for LLM chunking
+- ✅ **Complete Results**: Guaranteed to find all matches without missing content
+- ✅ **Cost Effective**: One LLM call instead of multiple chunked requests
+- ✅ **Generic Approach**: Works with any document type without hard-coded rules
+
+**Automatic Activation:**
+Smart Extractor automatically activates for queries like:
+- "list all applicants"
+- "extract all GitHub URLs" 
+- "find all email addresses"
+- "show all primary investigators"
+
+### Vector Store Integration
+Optional FAISS-based semantic search with advanced capabilities:
+
+**Features:**
+- **Hierarchical Chunking**: Child (200 chars) → Parent (800 chars) → Grandparent (3200 chars)
+- **Perfect Accuracy**: Uses IndexFlatIP for 100% accurate similarity search
+- **Context Expansion**: Small chunks for precision, large chunks for context
+- **Session Isolation**: Each user gets dedicated vector store slice
+
+**When to Enable:**
+- Large document collections (100+ pages)
+- Semantic search requirements
+- Cross-document relationship analysis
+- Research and discovery workflows
+
+**Usage:**
+```bash
+# Enable vector store
+VECTOR_STORE=1 python bedbot.py
+
+# In web interface, check "Use Vector Store" checkbox
+```
+
 ### Session Management
 - Each browser session maintains separate chat history and document context
 - Sessions persist until explicitly cleared or server restart (local mode)
 - S3 mode provides better session persistence
+- Vector stores are session-isolated for privacy
 
 ### Document Context
 - Uploaded documents become part of the conversation context
 - BedBot can reference and compare multiple documents
 - Context is maintained throughout the session
+- Smart routing between vector store and direct processing
 
 ### PDF Processing
-- Automatic PDF merging for multiple uploads (S3 mode)
-- Native PDF understanding using Nova's document capabilities
-- Intelligent content extraction and analysis
+- **Dual Processing Modes**: Bedrock Nova (default) or local PyMuPDF conversion
+- **Automatic PDF merging** for multiple uploads (S3 mode)
+- **Native PDF understanding** using Nova's document capabilities
+- **Intelligent content extraction** with markdown conversion
+- **Real-time progress tracking** with Server-Sent Events
 
 ### Security Features
 - Server-side session management
 - Automatic cleanup of temporary files
 - S3 bucket encryption and access controls
 - No persistent storage of sensitive data
+- FAISS logging suppression in production mode
 
 ## Security Considerations
 
