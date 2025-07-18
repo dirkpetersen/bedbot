@@ -1,0 +1,1644 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BedBot - AI Chat Assistant</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tom-select/dist/css/tom-select.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .chat-container {
+            width: 90%;
+            max-width: 800px;
+            height: 90vh;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(10px);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* 2-column layout for low vertical space */
+        @media (max-height: 700px) {
+            .chat-container {
+                max-width: 1200px;
+                width: 95%;
+                height: 95vh;
+                flex-direction: row;
+            }
+            
+            .left-panel {
+                width: 400px;
+                display: flex;
+                flex-direction: column;
+                border-right: 1px solid #e9ecef;
+                overflow-y: auto;
+            }
+            
+            .right-panel {
+                flex: 1;
+                display: flex;
+                flex-direction: column;
+                min-width: 0; /* Prevent flex item from overflowing */
+            }
+            
+            .chat-header {
+                border-radius: 20px 0 0 0;
+            }
+            
+            .right-panel .chat-header {
+                border-radius: 0 20px 0 0;
+                border-left: none;
+            }
+        }
+
+        /* Default single-column layout for normal screens */
+        @media (min-height: 701px) {
+            .left-panel {
+                width: 100%;
+            }
+            
+            .right-panel {
+                display: none; /* Hide right panel in single column mode */
+            }
+        }
+
+        /* Default single-column layout - show chat elements in left panel */
+        @media (min-height: 701px) {
+            .right-panel {
+                display: none; /* Hide right panel in single column mode */
+            }
+            
+            .left-panel {
+                display: flex;
+                flex-direction: column;
+                height: 100%;
+                min-height: 0; /* Important for flex scrolling */
+            }
+            
+            .left-panel .upload-section {
+                flex-shrink: 0; /* Don't shrink upload section */
+            }
+            
+            .left-panel .chat-messages {
+                flex: 1;
+                min-height: 0; /* Important for flex scrolling */
+                overflow-y: auto;
+            }
+            
+            .left-panel .chat-input-container {
+                flex-shrink: 0; /* Keep input area always visible */
+            }
+        }
+
+        /* 2-column layout - hide chat elements in left panel, show in right panel */
+        @media (max-height: 700px) {
+            .left-panel .chat-messages,
+            .left-panel .typing-indicator,
+            .left-panel .chat-input-container {
+                display: none; /* Hide chat elements in left panel for 2-column mode */
+            }
+        }
+
+        .chat-header {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            color: white;
+            padding: 20px;
+            text-align: center;
+            position: relative;
+            flex-shrink: 0; /* Don't shrink header */
+        }
+
+        .chat-header h1 {
+            font-size: 24px;
+            font-weight: 600;
+        }
+
+        .chat-header .subtitle {
+            font-size: 14px;
+            opacity: 0.9;
+            margin-top: 5px;
+        }
+
+        .clear-btn {
+            position: absolute;
+            right: 20px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: rgba(255, 255, 255, 0.2);
+            border: none;
+            color: white;
+            padding: 8px 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .clear-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        .upload-section {
+            padding: 15px 20px;
+            background: #f8f9fa;
+            border-bottom: 1px solid #e9ecef;
+            flex-shrink: 0; /* Don't shrink upload section */
+        }
+
+        .upload-controls {
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .upload-area {
+            border: 2px dashed #dee2e6;
+            border-radius: 10px;
+            padding: 15px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+
+        .upload-area:hover {
+            border-color: #4facfe;
+            background: rgba(79, 172, 254, 0.05);
+        }
+
+        .upload-area.dragover {
+            border-color: #4facfe;
+            background: rgba(79, 172, 254, 0.1);
+        }
+
+        .upload-text {
+            color: #6c757d;
+            font-size: 14px;
+        }
+
+        .file-input {
+            display: none;
+        }
+
+        .chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            min-height: 0; /* Important for flex scrolling */
+        }
+
+        .message {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .message.user {
+            flex-direction: row-reverse;
+        }
+
+        .message-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 16px;
+            flex-shrink: 0;
+        }
+
+        .message.user .message-avatar {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+
+        .message.bot .message-avatar {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+        }
+
+        .message-content {
+            max-width: 70%;
+            padding: 12px 16px;
+            border-radius: 18px;
+            word-wrap: break-word;
+            line-height: 1.4;
+        }
+
+        .message.user .message-content {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-bottom-right-radius: 4px;
+        }
+
+        .message.bot .message-content {
+            background: #f8f9fa;
+            color: #333;
+            border-bottom-left-radius: 4px;
+            border: 1px solid #e9ecef;
+        }
+
+        /* Markdown content styling */
+        .message.bot .message-content h1,
+        .message.bot .message-content h2,
+        .message.bot .message-content h3,
+        .message.bot .message-content h4,
+        .message.bot .message-content h5,
+        .message.bot .message-content h6 {
+            margin: 0.5em 0;
+            color: #2c3e50;
+        }
+
+        .message.bot .message-content p {
+            margin: 0.5em 0;
+        }
+
+        .message.bot .message-content ul,
+        .message.bot .message-content ol {
+            margin: 0.5em 0;
+            padding-left: 1.5em;
+        }
+
+        .message.bot .message-content li {
+            margin: 0.25em 0;
+        }
+
+        .message.bot .message-content code {
+            background: #f1f3f4;
+            padding: 2px 4px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+        }
+
+        .message.bot .message-content pre {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 6px;
+            padding: 12px;
+            overflow-x: auto;
+            margin: 0.5em 0;
+        }
+
+        .message.bot .message-content pre code {
+            background: none;
+            padding: 0;
+        }
+
+        .message.bot .message-content blockquote {
+            border-left: 4px solid #4facfe;
+            margin: 0.5em 0;
+            padding-left: 1em;
+            color: #666;
+        }
+
+        .message.bot .message-content table {
+            border-collapse: collapse;
+            width: 100%;
+            margin: 0.5em 0;
+        }
+
+        .message.bot .message-content th,
+        .message.bot .message-content td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+
+        .message.bot .message-content th {
+            background-color: #f2f2f2;
+            font-weight: bold;
+        }
+
+        .message.bot .message-content a {
+            color: #4facfe;
+            text-decoration: none;
+        }
+
+        .message.bot .message-content a:hover {
+            text-decoration: underline;
+        }
+
+        .chat-input-container {
+            padding: 20px;
+            background: white;
+            border-top: 1px solid #e9ecef;
+            flex-shrink: 0; /* Never shrink the input area */
+        }
+
+        .chat-input-wrapper {
+            display: flex;
+            gap: 10px;
+            align-items: flex-end;
+        }
+
+        .chat-input {
+            flex: 1;
+            border: 2px solid #e9ecef;
+            border-radius: 25px;
+            padding: 12px 20px;
+            font-size: 14px;
+            resize: none;
+            outline: none;
+            transition: all 0.3s ease;
+            max-height: 120px;
+            min-height: 68px;
+        }
+
+        .chat-input:focus {
+            border-color: #4facfe;
+            box-shadow: 0 0 0 3px rgba(79, 172, 254, 0.1);
+        }
+
+        .input-buttons {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .mic-btn {
+            width: 44px;
+            height: 44px;
+            border: none;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            color: white;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+            flex-shrink: 0;
+        }
+
+        .mic-btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 5px 15px rgba(40, 167, 69, 0.3);
+        }
+
+        .mic-btn.recording {
+            background: linear-gradient(135deg, #dc3545 0%, #fd7e14 100%);
+            animation: pulse 1.5s infinite;
+        }
+
+        .mic-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .send-btn {
+            width: 44px;
+            height: 44px;
+            border: none;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            color: white;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+            flex-shrink: 0;
+        }
+
+        .send-btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 5px 15px rgba(79, 172, 254, 0.3);
+        }
+
+        .send-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+
+        .typing-indicator {
+            display: none;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 0;
+        }
+
+        .typing-dots {
+            display: flex;
+            gap: 4px;
+        }
+
+        .typing-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #4facfe;
+            animation: typing 1.4s infinite ease-in-out;
+        }
+
+        .typing-dot:nth-child(1) { animation-delay: -0.32s; }
+        .typing-dot:nth-child(2) { animation-delay: -0.16s; }
+
+        .upload-status {
+            margin-top: 10px;
+            padding: 10px;
+            border-radius: 8px;
+            font-size: 12px;
+            display: none;
+        }
+
+        .upload-status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .upload-status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .uploaded-files {
+            margin-top: 15px;
+            display: none;
+        }
+
+        .uploaded-files.show {
+            display: block;
+        }
+
+        .uploaded-files h4 {
+            margin: 0 0 8px 0;
+            font-size: 13px;
+            color: #495057;
+            font-weight: 600;
+        }
+
+        .files-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+            max-height: 120px;
+            overflow-y: auto;
+            padding: 2px;
+        }
+
+        .file-tag {
+            display: inline-flex;
+            align-items: center;
+            background: #e3f2fd;
+            border: 1px solid #bbdefb;
+            border-radius: 12px;
+            padding: 2px 8px;
+            font-size: 11px;
+            color: #1976d2;
+            gap: 4px;
+            transition: all 0.2s ease;
+        }
+
+        .file-tag:hover {
+            background: #bbdefb;
+        }
+
+        .file-name {
+            font-weight: 500;
+            max-width: 120px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .remove-file-btn {
+            background: none;
+            border: none;
+            color: #f44336;
+            cursor: pointer;
+            padding: 0;
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 10px;
+            transition: all 0.2s ease;
+            margin-left: 2px;
+        }
+
+        .remove-file-btn:hover {
+            background: #f44336;
+            color: white;
+            transform: scale(1.1);
+        }
+
+        .model-selector {
+            margin-top: 15px;
+            display: none;
+        }
+
+        .model-selector.show {
+            display: block;
+        }
+
+        .model-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 5px;
+        }
+
+        .model-selector label {
+            font-size: 13px;
+            color: #495057;
+            font-weight: 600;
+        }
+
+        .vector-store-option {
+            margin-left: 10px;
+        }
+
+        .checkbox-label {
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+            font-size: 12px;
+            color: #6c757d;
+            font-weight: normal;
+        }
+
+        .checkbox-label input[type="checkbox"] {
+            margin-right: 5px;
+            cursor: pointer;
+        }
+
+        .checkmark {
+            margin-left: 2px;
+        }
+
+        .tooltip-icon {
+            margin-left: 4px;
+            color: #6c757d;
+            font-size: 11px;
+            cursor: help;
+        }
+
+        .tooltip-icon:hover {
+            color: #4facfe;
+        }
+
+        .model-select {
+            width: 100%;
+            padding: 8px 12px;
+            border: 2px solid #dee2e6;
+            border-radius: 8px;
+            font-size: 14px;
+            background: white;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .model-select:focus {
+            border-color: #4facfe;
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(79, 172, 254, 0.1);
+        }
+
+        .model-help-text {
+            margin-top: 5px;
+        }
+
+        .model-help-text small {
+            color: #6c757d;
+            font-size: 11px;
+        }
+
+        .model-help-text .fas {
+            margin-right: 4px;
+        }
+
+
+
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes typing {
+            0%, 80%, 100% { transform: scale(0); }
+            40% { transform: scale(1); }
+        }
+
+        @media (max-width: 768px) {
+            .chat-container {
+                width: 95%;
+                height: 95vh;
+                border-radius: 15px;
+            }
+
+            .message-content {
+                max-width: 85%;
+            }
+
+            .chat-header h1 {
+                font-size: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="chat-container">
+        <!-- Left Panel (Controls) - shown on the left in 2-column layout -->
+        <div class="left-panel">
+            <div class="chat-header">
+                <h1><i class="fas fa-robot"></i> BedBot</h1>
+                <div class="subtitle">Powered by AWS Bedrock</div>
+                <button class="clear-btn" onclick="clearChat()">
+                    <i class="fas fa-trash"></i> Clear
+                </button>
+            </div>
+
+            <div class="upload-section">
+                <div class="upload-controls">
+                    <div class="upload-area" onclick="document.getElementById('fileInput').click()">
+                        <i class="fas fa-cloud-upload-alt" style="font-size: 24px; color: #4facfe; margin-bottom: 10px;"></i>
+                        <div class="upload-text">
+                            <strong>Click to upload documents</strong> or drag and drop<br>
+                            <small>Supports: TXT, PDF, DOC, DOCX, MD, JSON, CSV (Max: 2GB total)</small>
+                        </div>
+                        <input type="file" id="fileInput" class="file-input" multiple accept=".txt,.pdf,.doc,.docx,.md,.json,.csv">
+                    </div>
+                    
+                    <div class="model-selector" id="modelSelector">
+                        <div class="model-header">
+                            <label for="modelSelect">
+                                <i class="fas fa-brain"></i> Select or Enter AI Model
+                            </label>
+                            <div class="vector-store-option" id="vectorStoreOption" style="display: none;">
+                                <label class="checkbox-label" title="If your text is short, e.g. less than 100 pages, it will fit into the context window of an LLM and you do not need a vector store">
+                                    <input type="checkbox" id="useVectorStore" />
+                                    <span class="checkmark"></span>
+                                    Use Vector Store
+                                    <i class="far fa-question-circle tooltip-icon"></i>
+                                </label>
+                            </div>
+                        </div>
+                        <select class="model-select" id="modelSelect">
+                            <option value="">Loading models...</option>
+                        </select>
+                    </div>
+                    
+                    <div class="upload-status" id="uploadStatus"></div>
+                    <div class="uploaded-files" id="uploadedFiles"></div>
+                </div>
+            </div>
+            
+            <!-- Chat elements for single-column mode -->
+            <div class="chat-messages">
+                <!-- Welcome message will be added by JavaScript -->
+            </div>
+
+            <div class="typing-indicator">
+                <div class="message-avatar" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);">
+                    <i class="fas fa-robot"></i>
+                </div>
+                <div class="typing-dots">
+                    <div class="typing-dot"></div>
+                    <div class="typing-dot"></div>
+                    <div class="typing-dot"></div>
+                </div>
+            </div>
+
+            <div class="chat-input-container">
+                <div class="chat-input-wrapper">
+                    <textarea 
+                        class="chat-input" 
+                        id="messageInput" 
+                        placeholder="Type your message here..."
+                        rows="2"
+                    ></textarea>
+                    <div class="input-buttons">
+                        <button class="mic-btn" id="micBtn" onclick="toggleVoiceRecording()" title="Voice input">
+                            <i class="fas fa-microphone"></i>
+                        </button>
+                        <button class="send-btn" id="sendBtn" onclick="sendMessage()">
+                            <i class="fas fa-paper-plane"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Panel (Chat) - shown on the right in 2-column layout -->
+        <div class="right-panel">
+            <div class="chat-header">
+                <h1><i class="fas fa-comments"></i> Chat</h1>
+                <div class="subtitle">AI Conversation</div>
+            </div>
+
+            <div class="chat-messages">
+                <!-- Welcome message will be added by JavaScript -->
+            </div>
+
+            <div class="typing-indicator">
+                <div class="message-avatar" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);">
+                    <i class="fas fa-robot"></i>
+                </div>
+                <div class="typing-dots">
+                    <div class="typing-dot"></div>
+                    <div class="typing-dot"></div>
+                    <div class="typing-dot"></div>
+                </div>
+            </div>
+
+            <div class="chat-input-container">
+                <div class="chat-input-wrapper">
+                    <textarea 
+                        class="chat-input" 
+                        placeholder="Type your message here..."
+                        rows="2"
+                    ></textarea>
+                    <div class="input-buttons">
+                        <button class="mic-btn" onclick="toggleVoiceRecording()" title="Voice input">
+                            <i class="fas fa-microphone"></i>
+                        </button>
+                        <button class="send-btn" onclick="sendMessage()">
+                            <i class="fas fa-paper-plane"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/tom-select/dist/js/tom-select.complete.min.js"></script>
+    <script>
+        const chatMessages = document.getElementById('chatMessages');
+        const messageInput = document.getElementById('messageInput');
+        const sendBtn = document.getElementById('sendBtn');
+        const typingIndicator = document.getElementById('typingIndicator');
+        
+        // Function to get the active chat container based on current layout
+        function getActiveChatContainer() {
+            // Check if we're in 2-column mode (low height)
+            if (window.innerHeight <= 700) {
+                // Use right panel chat container
+                return document.querySelector('.right-panel .chat-messages');
+            } else {
+                // Use left panel chat container (single column mode)
+                return document.querySelector('.left-panel .chat-messages');
+            }
+        }
+        
+        function getActiveTypingIndicator() {
+            if (window.innerHeight <= 700) {
+                return document.querySelector('.right-panel .typing-indicator');
+            } else {
+                return document.querySelector('.left-panel .typing-indicator');
+            }
+        }
+        
+        function getActiveMessageInput() {
+            if (window.innerHeight <= 700) {
+                return document.querySelector('.right-panel .chat-input');
+            } else {
+                return document.querySelector('.left-panel .chat-input');
+            }
+        }
+        
+        function getActiveSendButton() {
+            if (window.innerHeight <= 700) {
+                return document.querySelector('.right-panel .send-btn');
+            } else {
+                return document.querySelector('.left-panel .send-btn');
+            }
+        }
+        
+        function getActiveMicButton() {
+            if (window.innerHeight <= 700) {
+                return document.querySelector('.right-panel .mic-btn');
+            } else {
+                return document.querySelector('.left-panel .mic-btn');
+            }
+        }
+        
+        // Function to move messages between containers when layout changes
+        function moveMessagesToActiveContainer() {
+            const leftChatContainer = document.querySelector('.left-panel .chat-messages');
+            const rightChatContainer = document.querySelector('.right-panel .chat-messages');
+            const activeChatContainer = getActiveChatContainer();
+            
+            // Determine which container has messages and which should receive them
+            const sourceContainer = activeChatContainer === leftChatContainer ? rightChatContainer : leftChatContainer;
+            
+            // Move all messages from source to active container
+            while (sourceContainer.firstChild) {
+                activeChatContainer.appendChild(sourceContainer.firstChild);
+            }
+            
+            // Sync input content between containers
+            const leftInput = document.querySelector('.left-panel .chat-input');
+            const rightInput = document.querySelector('.right-panel .chat-input');
+            const activeInput = getActiveMessageInput();
+            const inactiveInput = activeInput === leftInput ? rightInput : leftInput;
+            
+            // Copy content from inactive to active input
+            if (inactiveInput.value && !activeInput.value) {
+                activeInput.value = inactiveInput.value;
+                activeInput.style.height = 'auto';
+                activeInput.style.height = Math.min(activeInput.scrollHeight, 120) + 'px';
+                inactiveInput.value = ''; // Clear inactive input
+            }
+            
+            // Scroll to bottom of active container
+            activeChatContainer.scrollTop = activeChatContainer.scrollHeight;
+        }
+        
+        // Handle window resize to switch between layouts
+        let resizeTimeout;
+        window.addEventListener('resize', function() {
+            clearTimeout(resizeTimeout);
+            resizeTimeout = setTimeout(function() {
+                moveMessagesToActiveContainer();
+            }, 250); // Debounce resize events
+        });
+        const uploadArea = document.querySelector('.upload-area');
+        const fileInput = document.getElementById('fileInput');
+        const uploadStatus = document.getElementById('uploadStatus');
+        const uploadedFiles = document.getElementById('uploadedFiles');
+        const micBtn = document.getElementById('micBtn');
+
+        // Speech recognition variables
+        let recognition = null;
+        let isRecording = false;
+
+        // Set up dynamic event handlers for input fields
+        function setupInputHandlers() {
+            // Auto-resize textarea for both panels
+            document.querySelectorAll('.chat-input').forEach(input => {
+                input.addEventListener('input', function() {
+                    this.style.height = 'auto';
+                    this.style.height = Math.min(this.scrollHeight, 120) + 'px';
+                });
+
+                // Send message on Enter (but allow Shift+Enter for new lines)
+                input.addEventListener('keydown', function(e) {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        sendMessage();
+                    }
+                });
+            });
+        }
+        
+        // Call setup function
+        setupInputHandlers();
+
+        // File upload handling
+        fileInput.addEventListener('change', handleFileUpload);
+
+        // Initialize speech recognition
+        if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            recognition = new SpeechRecognition();
+            recognition.continuous = true;  // Keep listening continuously
+            recognition.interimResults = true;  // Show interim results
+            recognition.lang = 'en-US';
+
+            let finalTranscript = '';
+            let interimTranscript = '';
+
+            recognition.onstart = function() {
+                isRecording = true;
+                const activeMicBtn = getActiveMicButton();
+                activeMicBtn.classList.add('recording');
+                activeMicBtn.innerHTML = '<i class="fas fa-stop"></i>';
+                activeMicBtn.title = 'Stop recording';
+                finalTranscript = '';
+                interimTranscript = '';
+            };
+
+            recognition.onresult = function(event) {
+                let currentFinalTranscript = '';
+                let currentInterimTranscript = '';
+                
+                // Process all results to get current state
+                for (let i = 0; i < event.results.length; i++) {
+                    const transcript = event.results[i][0].transcript;
+                    
+                    if (event.results[i].isFinal) {
+                        currentFinalTranscript += transcript + ' ';
+                    } else {
+                        currentInterimTranscript += transcript;
+                    }
+                }
+                
+                // Only add text when we have NEW final results
+                if (currentFinalTranscript && currentFinalTranscript.length > finalTranscript.length) {
+                    // Extract only the new part
+                    const newText = currentFinalTranscript.substring(finalTranscript.length).trim();
+                    
+                    if (newText) {
+                        const activeMessageInput = getActiveMessageInput();
+                        const currentValue = activeMessageInput.value;
+                        // Add space before new text if input is not empty
+                        const separator = currentValue.trim() ? ' ' : '';
+                        activeMessageInput.value = currentValue + separator + newText;
+                        
+                        activeMessageInput.style.height = 'auto';
+                        activeMessageInput.style.height = Math.min(activeMessageInput.scrollHeight, 120) + 'px';
+                        activeMessageInput.focus();
+                    }
+                    
+                    finalTranscript = currentFinalTranscript;
+                }
+                
+                // Store interim for display purposes but don't add to input
+                interimTranscript = currentInterimTranscript;
+            };
+
+            recognition.onend = function() {
+                if (isRecording) {
+                    // If we're still supposed to be recording, restart (handles pauses)
+                    try {
+                        recognition.start();
+                    } catch (error) {
+                        // If restart fails, stop recording
+                        stopRecording();
+                    }
+                }
+            };
+
+            recognition.onerror = function(event) {
+                console.error('Speech recognition error:', event.error);
+                
+                if (event.error === 'not-allowed') {
+                    alert('Microphone access denied. Please allow microphone access and try again.');
+                    stopRecording();
+                } else if (event.error === 'no-speech') {
+                    // Don't stop on no-speech, just continue
+                    console.log('No speech detected, continuing...');
+                } else if (event.error === 'aborted') {
+                    // Don't restart if aborted intentionally
+                    if (isRecording) {
+                        stopRecording();
+                    }
+                } else {
+                    // For other errors, try to restart if still recording
+                    if (isRecording) {
+                        setTimeout(() => {
+                            if (isRecording) {
+                                try {
+                                    recognition.start();
+                                } catch (e) {
+                                    stopRecording();
+                                }
+                            }
+                        }, 1000);
+                    }
+                }
+            };
+
+            // Stop recording when window loses focus
+            window.addEventListener('blur', function() {
+                if (isRecording) {
+                    stopRecording();
+                }
+            });
+
+            // Helper function to stop recording
+            function stopRecording() {
+                isRecording = false;
+                const activeMicBtn = getActiveMicButton();
+                activeMicBtn.classList.remove('recording');
+                activeMicBtn.innerHTML = '<i class="fas fa-microphone"></i>';
+                activeMicBtn.title = 'Voice input';
+                
+                // Clean up any extra spaces in the input
+                const activeMessageInput = getActiveMessageInput();
+                const currentValue = activeMessageInput.value;
+                const cleanedValue = currentValue.replace(/\s+/g, ' ').trim();
+                activeMessageInput.value = cleanedValue;
+                activeMessageInput.style.height = 'auto';
+                activeMessageInput.style.height = Math.min(activeMessageInput.scrollHeight, 120) + 'px';
+                
+                // Reset transcripts
+                finalTranscript = '';
+                interimTranscript = '';
+                
+                try {
+                    recognition.stop();
+                } catch (error) {
+                    // Ignore errors when stopping
+                }
+            }
+        } else {
+            // Hide microphone buttons if speech recognition is not supported
+            document.querySelectorAll('.mic-btn').forEach(btn => {
+                btn.style.display = 'none';
+            });
+        }
+
+        // Drag and drop
+        uploadArea.addEventListener('dragover', function(e) {
+            e.preventDefault();
+            this.classList.add('dragover');
+        });
+
+        uploadArea.addEventListener('dragleave', function(e) {
+            e.preventDefault();
+            this.classList.remove('dragover');
+        });
+
+        uploadArea.addEventListener('drop', function(e) {
+            e.preventDefault();
+            this.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            fileInput.files = files;
+            handleFileUpload();
+        });
+
+        async function sendMessage() {
+            const activeMessageInput = getActiveMessageInput();
+            const message = activeMessageInput.value.trim();
+            if (!message) return;
+
+            // Add user message
+            addMessage(message, 'user');
+            activeMessageInput.value = '';
+            activeMessageInput.style.height = 'auto';
+
+            // Show typing indicator
+            showTyping();
+
+            try {
+                // Check if vector store is enabled by user
+                const useVectorStoreCheckbox = document.getElementById('useVectorStore');
+                const useVectorStore = useVectorStoreCheckbox && useVectorStoreCheckbox.checked;
+                
+                const response = await fetch('/chat', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ 
+                        message: message,
+                        use_vector_store: useVectorStore
+                    })
+                });
+
+                const data = await response.json();
+                
+                if (response.ok) {
+                    addMessage(data.response, 'bot');
+                } else {
+                    addMessage(`Error: ${data.error}`, 'bot');
+                }
+            } catch (error) {
+                addMessage('Sorry, there was an error processing your request.', 'bot');
+            } finally {
+                hideTyping();
+            }
+        }
+
+        function addMessage(content, sender) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${sender}`;
+            
+            const avatar = document.createElement('div');
+            avatar.className = 'message-avatar';
+            avatar.innerHTML = sender === 'user' ? '<i class="fas fa-user"></i>' : '<i class="fas fa-robot"></i>';
+            
+            const messageContent = document.createElement('div');
+            messageContent.className = 'message-content';
+            
+            // For bot messages, treat content as HTML; for user messages, treat as text
+            if (sender === 'bot') {
+                messageContent.innerHTML = content;
+            } else {
+                messageContent.textContent = content;
+            }
+            
+            messageDiv.appendChild(avatar);
+            messageDiv.appendChild(messageContent);
+            
+            // Use the active chat container based on current layout
+            const activeChatContainer = getActiveChatContainer();
+            activeChatContainer.appendChild(messageDiv);
+            activeChatContainer.scrollTop = activeChatContainer.scrollHeight;
+        }
+
+        function showTyping() {
+            const activeTypingIndicator = getActiveTypingIndicator();
+            activeTypingIndicator.style.display = 'flex';
+            const activeSendBtn = getActiveSendButton();
+            activeSendBtn.disabled = true;
+            const activeChatContainer = getActiveChatContainer();
+            activeChatContainer.scrollTop = activeChatContainer.scrollHeight;
+        }
+
+        function hideTyping() {
+            const activeTypingIndicator = getActiveTypingIndicator();
+            activeTypingIndicator.style.display = 'none';
+            const activeSendBtn = getActiveSendButton();
+            activeSendBtn.disabled = false;
+        }
+
+        let isUploading = false;
+        let statusEventSource = null;
+        
+        // Status update functions
+        async function startStatusUpdates() {
+            const sessionId = 'status_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+            
+            statusEventSource = new EventSource(`/upload_status/${sessionId}`);
+            
+            statusEventSource.onmessage = function(event) {
+                const data = JSON.parse(event.data);
+                const uploadStatus = document.getElementById('uploadStatus');
+                
+                if (data.stage && data.message) {
+                    uploadStatus.textContent = `${data.stage}: ${data.message}`;
+                    
+                    // Add progress indicator if available
+                    if (data.progress) {
+                        uploadStatus.textContent += ` (${data.progress}%)`;
+                    }
+                }
+            };
+            
+            statusEventSource.onerror = function(event) {
+                console.log('Status update error:', event);
+            };
+            
+            return sessionId;
+        }
+        
+        function stopStatusUpdates() {
+            if (statusEventSource) {
+                statusEventSource.close();
+                statusEventSource = null;
+            }
+        }
+        
+        async function handleFileUpload() {
+            const files = fileInput.files;
+            if (files.length === 0) return;
+            
+            // Prevent concurrent uploads
+            if (isUploading) {
+                uploadStatus.style.display = 'block';
+                uploadStatus.className = 'upload-status error';
+                uploadStatus.textContent = 'Please wait for the current upload to complete before uploading more files.';
+                return;
+            }
+            
+            isUploading = true;
+
+            const formData = new FormData();
+            for (let file of files) {
+                formData.append('files', file);
+            }
+            
+            // Include vector store preference
+            const useVectorStoreCheckbox = document.getElementById('useVectorStore');
+            const useVectorStore = useVectorStoreCheckbox ? useVectorStoreCheckbox.checked : false;
+            formData.append('use_vector_store', useVectorStore);
+
+            uploadStatus.style.display = 'block';
+            uploadStatus.className = 'upload-status';
+            uploadStatus.textContent = 'Starting upload...';
+
+            try {
+                // Start listening for status updates
+                const sessionId = await startStatusUpdates();
+                formData.append('status_session_id', sessionId);
+                
+                const response = await fetch('/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+                
+                if (response.ok) {
+                    stopStatusUpdates(); // Stop status updates
+                    uploadStatus.className = 'upload-status success';
+                    const contextInfo = data.context_display || `${data.context_length} characters`;
+                    uploadStatus.textContent = `✓ ${data.message}. Context: ${contextInfo}.`;
+                    
+                    // Fetch complete file list from server instead of using upload response
+                    console.log('Upload response data:', data); // Debug log
+                    await refreshFilesList();
+                    
+                    // Add system message about uploaded files
+                    let uploadMessage = `📁 Uploaded ${files.length} file(s). I now have access to their content for our conversation.`;
+                    
+                    // Add content size information if available
+                    if (data.markdown_size_display && data.markdown_size_display !== '0.000 MiB') {
+                        uploadMessage += ` Total content size for LLM: ${data.markdown_size_display}.`;
+                    }
+                    
+                    addMessage(uploadMessage, 'bot');
+                } else {
+                    uploadStatus.className = 'upload-status error';
+                    uploadStatus.textContent = `✗ Upload failed: ${data.error}`;
+                }
+            } catch (error) {
+                stopStatusUpdates(); // Stop status updates on error
+                uploadStatus.className = 'upload-status error';
+                uploadStatus.textContent = '✗ Upload failed: Network error';
+            } finally {
+                isUploading = false;
+            }
+
+            // Clear file input
+            fileInput.value = '';
+        }
+
+        function updateUploadedFilesDisplay(files) {
+            console.log('Updating files display with:', files); // Debug log
+            
+            if (!files || files.length === 0) {
+                uploadedFiles.style.display = 'none';
+                uploadedFiles.className = 'uploaded-files';
+                return;
+            }
+
+            uploadedFiles.innerHTML = `
+                <h4><i class="fas fa-paperclip"></i> Files (${files.length})</h4>
+                <div class="files-container">
+                    ${files.map(file => `
+                        <div class="file-tag">
+                            <span class="file-name" title="${file.filename}">${file.filename}</span>
+                            <button class="remove-file-btn" onclick="removeFile('${file.filename}')" title="Remove ${file.filename}">
+                                ×
+                            </button>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+            uploadedFiles.className = 'uploaded-files show';
+            uploadedFiles.style.display = 'block'; // Explicitly show the element
+        }
+
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        async function removeFile(filename) {
+            try {
+                const response = await fetch('/remove_file', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ filename: filename })
+                });
+
+                const data = await response.json();
+                
+                if (response.ok) {
+                    updateUploadedFilesDisplay(data.uploaded_files);
+                    addMessage(`🗑️ Removed "${filename}" from the conversation context.`, 'bot');
+                } else {
+                    alert(`Failed to remove file: ${data.error}`);
+                }
+            } catch (error) {
+                alert('Failed to remove file: Network error');
+            }
+        }
+
+        function toggleVoiceRecording() {
+            if (!recognition) {
+                alert('Speech recognition is not supported in this browser.');
+                return;
+            }
+
+            if (isRecording) {
+                stopRecording();
+            } else {
+                try {
+                    recognition.start();
+                } catch (error) {
+                    console.error('Error starting speech recognition:', error);
+                    alert('Could not start voice recording. Please try again.');
+                }
+            }
+        }
+
+        async function refreshFilesList() {
+            try {
+                const filesResponse = await fetch('/files');
+                const files = await filesResponse.json();
+                console.log('Refreshed files list:', files); // Debug log
+                updateUploadedFilesDisplay(files);
+            } catch (error) {
+                console.log('Error refreshing files list:', error);
+            }
+        }
+
+        function clearChat() {
+            window.location.href = '/clear';
+        }
+
+        // Cookie utility functions
+        function setCookie(name, value, days = 30) {
+            const expires = new Date();
+            expires.setTime(expires.getTime() + (days * 24 * 60 * 60 * 1000));
+            document.cookie = `${name}=${value};expires=${expires.toUTCString()};path=/;SameSite=Lax`;
+        }
+
+        function getCookie(name) {
+            const nameEQ = name + "=";
+            const ca = document.cookie.split(';');
+            for (let i = 0; i < ca.length; i++) {
+                let c = ca[i];
+                while (c.charAt(0) === ' ') c = c.substring(1, c.length);
+                if (c.indexOf(nameEQ) === 0) return c.substring(nameEQ.length, c.length);
+            }
+            return null;
+        }
+
+        // Track current model and Tom Select instance
+        let currentModel = null;
+        let modelSelect = null;
+        let allBedrockModels = []; // Store all available models
+
+        // Model selector functionality using Tom Select
+        async function loadModels() {
+            try {
+                const response = await fetch('/models');
+                const data = await response.json();
+                console.log('Available models:', data);
+                
+                const modelSelector = document.getElementById('modelSelector');
+                const selectElement = document.getElementById('modelSelect');
+                
+                // Clear existing options and add configured models
+                selectElement.innerHTML = '';
+                
+                // Store all models for dynamic loading
+                allBedrockModels = data.models || [];
+                
+                // Add only configured models initially
+                const configuredModels = data.models.filter(model => model.type === 'configured');
+                
+                // Check if we should hide the selector (0 or 1 configured models)
+                if (configuredModels.length <= 1) {
+                    console.log(`Only ${configuredModels.length} configured model(s), hiding model selector`);
+                    modelSelector.style.display = 'none';
+                    
+                    // If there's exactly one model, set it as current and return early
+                    if (configuredModels.length === 1) {
+                        currentModel = configuredModels[0].id;
+                    }
+                    return;
+                }
+                
+                configuredModels.forEach(model => {
+                    const option = document.createElement('option');
+                    option.value = model.id;
+                    option.textContent = model.id;
+                    selectElement.appendChild(option);
+                });
+                
+                // Initialize Tom Select
+                modelSelect = new TomSelect('#modelSelect', {
+                    create: true,
+                    sortField: {
+                        field: 'text',
+                        direction: 'asc'
+                    },
+                    placeholder: 'Select model or type to search...',
+                    maxItems: 1,
+                    load: function(query, callback) {
+                        console.log('Tom Select load called with query:', query);
+                        
+                        if (!query || query.length === 0) {
+                            return callback();
+                        }
+                        
+                        // Load all available Bedrock models when user starts typing
+                        const availableModels = allBedrockModels
+                            .filter(model => model.type === 'available')
+                            .map(model => ({
+                                value: model.id,
+                                text: model.id
+                            }));
+                        
+                        console.log(`Loading ${availableModels.length} additional models`);
+                        callback(availableModels);
+                    },
+                    shouldLoad: function(query) {
+                        // Only load when user types something
+                        return query && query.length > 0;
+                    },
+                    createFilter: function(input) {
+                        // Allow creating custom Bedrock model IDs
+                        if (!input || !input.trim()) return false;
+                        
+                        const trimmed = input.trim();
+                        const bedrockPattern = /^(us\.|anthropic\.|amazon\.|ai21\.|cohere\.|meta\.|stability\.|mistral\.)/;
+                        
+                        return bedrockPattern.test(trimmed) || trimmed.length > 3;
+                    },
+                    render: {
+                        no_results: function(data, escape) {
+                            return '<div class="no-results">Type to search all Bedrock models or enter custom model ID</div>';
+                        }
+                    }
+                });
+                
+                // Set current model value
+                if (data.current) {
+                    modelSelect.setValue(data.current);
+                    currentModel = data.current;
+                }
+                
+                // Add event handler for changes
+                modelSelect.on('change', function(value) {
+                    console.log('Model selected via change:', value);
+                    if (value && value !== currentModel) {
+                        changeModel(value);
+                    }
+                });
+                
+                // Handle when user creates a new item (custom model) - but don't call changeModel
+                // since the change event will handle it
+                modelSelect.on('item_add', function(value, item) {
+                    console.log('Item added:', value, '- change event will handle model switch');
+                });
+                
+                // Show the selector
+                modelSelector.classList.add('show');
+                
+                // Handle vector store option
+                if (data.vector_store_enabled) {
+                    const vectorStoreOption = document.getElementById('vectorStoreOption');
+                    const useVectorStoreCheckbox = document.getElementById('useVectorStore');
+                    
+                    // Show the vector store option
+                    vectorStoreOption.style.display = 'block';
+                    
+                    // Load vector store preference from cookie, default to enabled when vector store is available
+                    const vectorStoreCookie = getCookie('use_vector_store');
+                    if (vectorStoreCookie !== null) {
+                        // User has a saved preference
+                        useVectorStoreCheckbox.checked = (vectorStoreCookie === 'true');
+                    } else {
+                        // No saved preference, default to enabled when vector store is available
+                        useVectorStoreCheckbox.checked = true;
+                        // Save this default preference
+                        setCookie('use_vector_store', 'true', 30);
+                    }
+                    
+                    // Add event listener for vector store checkbox
+                    useVectorStoreCheckbox.addEventListener('change', function() {
+                        const isEnabled = this.checked;
+                        setCookie('use_vector_store', isEnabled ? 'true' : 'false', 30);
+                        console.log('Vector store preference saved:', isEnabled);
+                        
+                        // Notify the user about the change
+                        if (isEnabled) {
+                            addMessage(`🔍 Vector store enabled. I'll now use semantic search to find relevant content from your uploaded documents for more accurate answers.`, 'bot');
+                        } else {
+                            addMessage(`🔍 Vector store disabled. I'll use the traditional method of including all document content in queries.`, 'bot');
+                        }
+                    });
+                }
+                
+            } catch (error) {
+                console.log('Error loading models:', error);
+                // In error case, hide the selector since we can't load models properly
+                const modelSelector = document.getElementById('modelSelector');
+                console.log('Error loading models, hiding model selector');
+                modelSelector.style.display = 'none';
+            }
+        }
+
+        async function changeModel(selectedModel) {
+            if (!selectedModel) return;
+            
+            try {
+                const response = await fetch('/change_model', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ model: selectedModel })
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    console.log('Model changed to:', data.model);
+                    
+                    // Update the current model tracking
+                    currentModel = data.model;
+                    
+                    // Update Tom Select to show the confirmed model
+                    if (modelSelect) {
+                        modelSelect.setValue(data.model);
+                    }
+                    
+                    // Add system message about model change - keep existing chat history
+                    if (data.model_changed) {
+                        const uploadedFiles = document.getElementById('uploadedFiles');
+                        const hasFiles = uploadedFiles && uploadedFiles.classList.contains('show');
+                        
+                        const modelType = data.is_custom ? 'custom' : 'predefined';
+                        const changeMessage = `🧠 Switched to ${selectedModel} (${modelType} model).${hasFiles ? ' Your uploaded documents will be re-processed with the new model.' : ''}`;
+                        addMessage(changeMessage, 'bot');
+                    }
+                } else {
+                    const errorData = await response.json();
+                    console.error('Failed to change model:', errorData.error);
+                    alert(`Failed to change model: ${errorData.error}`);
+                    
+                    // Revert to previous model
+                    if (modelSelect && currentModel) {
+                        modelSelect.setValue(currentModel);
+                    }
+                }
+            } catch (error) {
+                console.error('Error changing model:', error);
+                alert('Error changing model. Please try again.');
+                
+                // Revert to previous model
+                if (modelSelect && currentModel) {
+                    modelSelect.setValue(currentModel);
+                }
+            }
+        }
+
+
+        // Load chat history and files on page load
+        window.addEventListener('load', async function() {
+            let hasHistory = false;
+            try {
+                const response = await fetch('/history');
+                const history = await response.json();
+                
+                if (history.length > 0) {
+                    hasHistory = true;
+                    history.forEach(item => {
+                        addMessage(item.user, 'user');
+                        // Use HTML version if available, otherwise fall back to markdown
+                        addMessage(item.bot_html || item.bot, 'bot');
+                    });
+                }
+            } catch (error) {
+                console.log('No chat history available');
+            }
+            
+            // Add welcome message only if there's no history
+            if (!hasHistory) {
+                addMessage("Hello! I'm BedBot, your AI assistant powered by AWS Bedrock. You can chat with me and upload documents for context-aware conversations. How can I help you today?", 'bot');
+            }
+
+            // Load uploaded files
+            try {
+                const filesResponse = await fetch('/files');
+                const files = await filesResponse.json();
+                updateUploadedFilesDisplay(files);
+            } catch (error) {
+                console.log('No uploaded files available');
+            }
+            
+            // Load available models
+            loadModels();
+            
+            // Ensure messages are in the correct container for current layout
+            moveMessagesToActiveContainer();
+        });
+    </script>
+</body>
+</html>
