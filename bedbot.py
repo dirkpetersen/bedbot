@@ -1242,6 +1242,163 @@ def send_bedrock_message(messages):
         else:
             raise api_error
 
+def build_structured_rag_prompt(user_query, vector_context="", traditional_context="", conversation_history=None, query_type=None):
+    """
+    Build a structured RAG prompt using advanced prompt engineering techniques.
+    Uses textwrap.dedent for clean multiline formatting with proper source citations.
+    """
+    if query_type is None:
+        query_type = {}
+    
+    # Determine the primary context source
+    primary_context = vector_context if vector_context else traditional_context
+    
+    if not primary_context:
+        # No context available - return simple query
+        return user_query
+    
+    # Build structured prompt with clear sections
+    if query_type.get('is_comprehensive') or query_type.get('is_document_listing'):
+        # Comprehensive analysis template
+        structured_prompt = textwrap.dedent(f"""
+            ROLE: You are an expert document analyst providing comprehensive analysis.
+            
+            TASK: Provide a complete, thorough analysis of the user's question using ALL relevant information from the provided documents.
+            
+            INSTRUCTIONS:
+            - Analyze ALL provided document content thoroughly
+            - Provide comprehensive information covering all relevant aspects
+            - Do NOT summarize or truncate - give detailed, complete responses
+            - Cite specific sources using format: (Source: document_name.pdf)
+            - Organize information logically with clear structure
+            - Include all relevant details, examples, and supporting information
+            
+            DOCUMENT CONTEXT:
+            {primary_context}
+            
+            USER QUESTION: {user_query}
+            
+            RESPONSE REQUIREMENTS:
+            - Provide exhaustive analysis covering all aspects
+            - Use structured formatting (headers, lists, tables where appropriate)
+            - Cite sources for each piece of information
+            - Ensure no important information is missed
+        """).strip()
+        
+    elif query_type.get('needs_full_context'):
+        # Cross-document analysis template
+        structured_prompt = textwrap.dedent(f"""
+            ROLE: You are an expert analyst specializing in cross-document comparison and relationship analysis.
+            
+            TASK: Analyze relationships, patterns, and connections across ALL provided documents to answer the user's question.
+            
+            INSTRUCTIONS:
+            - Compare and contrast information across different documents
+            - Identify relationships, correlations, and patterns
+            - Highlight agreements, disagreements, and complementary information
+            - Provide synthesis that draws from multiple sources
+            - Always cite sources using format: (Source: document_name.pdf)
+            
+            DOCUMENT CONTEXT:
+            {primary_context}
+            
+            USER QUESTION: {user_query}
+            
+            ANALYSIS FRAMEWORK:
+            1. Individual document insights
+            2. Cross-document patterns and relationships
+            3. Synthesis and comprehensive conclusions
+            4. Source-attributed evidence for all claims
+        """).strip()
+        
+    elif query_type.get('is_complex'):
+        # Detailed explanation template
+        structured_prompt = textwrap.dedent(f"""
+            ROLE: You are a knowledgeable expert providing detailed explanations based on document analysis.
+            
+            TASK: Provide a thorough, well-explained response to the user's question using the provided document content.
+            
+            INSTRUCTIONS:
+            - Give detailed explanations with supporting evidence from documents
+            - Break down complex concepts into understandable parts
+            - Provide context and background information where relevant
+            - Use examples and specifics from the documents
+            - Always cite sources using format: (Source: document_name.pdf)
+            
+            DOCUMENT CONTEXT:
+            {primary_context}
+            
+            USER QUESTION: {user_query}
+            
+            RESPONSE STRUCTURE:
+            - Clear, detailed explanation
+            - Supporting evidence with source citations
+            - Relevant examples and specifics
+            - Context and implications
+        """).strip()
+        
+    elif query_type.get('is_extraction'):
+        # Structured extraction template
+        structured_prompt = textwrap.dedent(f"""
+            ROLE: You are a data extraction specialist focused on finding and organizing specific information.
+            
+            TASK: Extract and organize all instances of the requested information type from the provided documents.
+            
+            INSTRUCTIONS:
+            - Find ALL instances of the requested information type
+            - Present results in a clear, organized format (tables, lists)
+            - Include source attribution for each item: (Source: document_name.pdf)
+            - Ensure completeness - don't miss any relevant items
+            - Group and categorize results logically
+            
+            DOCUMENT CONTEXT:
+            {primary_context}
+            
+            EXTRACTION REQUEST: {user_query}
+            
+            OUTPUT FORMAT:
+            - Structured presentation (table/list format)
+            - Complete source attribution
+            - Organized by category or document source
+            - Summary count of total items found
+        """).strip()
+        
+    else:
+        # Standard RAG template with source citations
+        structured_prompt = textwrap.dedent(f"""
+            ROLE: You are a helpful assistant analyzing documents to answer user questions.
+            
+            TASK: Answer the user's question using the provided document content as your primary source of information.
+            
+            INSTRUCTIONS:
+            - Base your response primarily on the provided document content
+            - Always cite sources using format: (Source: document_name.pdf)
+            - If information is not in the documents, clearly state this
+            - Provide specific details and examples from the documents
+            - Maintain accuracy and avoid speculation beyond the provided content
+            
+            DOCUMENT CONTEXT:
+            {primary_context}
+            
+            USER QUESTION: {user_query}
+            
+            Please provide a helpful response based on the document content, with proper source citations.
+        """).strip()
+    
+    # Add conversation history context if available
+    if conversation_history and len(conversation_history) > 0:
+        history_context = "\n\nRECENT CONVERSATION CONTEXT:\n"
+        for i, entry in enumerate(conversation_history[-3:], 1):  # Last 3 exchanges
+            history_context += f"Exchange {i}:\n"
+            history_context += f"User: {entry.get('user', '')}\n"
+            history_context += f"Assistant: {entry.get('bot', '')[:200]}...\n\n"
+        
+        structured_prompt = structured_prompt + history_context
+    
+    logger.info(f"Built structured RAG prompt: {len(structured_prompt):,} chars, type: {[k for k, v in query_type.items() if v]}")
+    
+    return structured_prompt
+
 def call_bedrock(prompt, context="", pdf_files=None, conversation_history=None, send_pdfs=False, use_vector_store=False):
     """Call AWS Bedrock model using Converse API with document support and conversation history"""
     if not bedrock_client:
@@ -1540,29 +1697,20 @@ def call_bedrock(prompt, context="", pdf_files=None, conversation_history=None, 
             except Exception as e:
                 logger.error(f"Error retrieving vector context: {e}")
         
-        # Combine contexts: prioritize vector context when available
-        combined_context = ""
-        context_instructions = ""
-        
-        if vector_context:
-            # Add context-specific instructions for the AI model
-            if is_comprehensive_query or is_document_listing or needs_full_context:
-                context_instructions = "COMPREHENSIVE ANALYSIS REQUESTED:\nThe user is asking for a complete, thorough analysis. Please provide comprehensive information covering all relevant aspects from the documents. Do not summarize - provide detailed, complete responses.\n\n"
-            elif any(indicator in prompt.lower() for indicator in complex_query_indicators):
-                context_instructions = "DETAILED EXPLANATION REQUESTED:\nPlease provide a thorough explanation with supporting details from the documents.\n\n"
-            
-            combined_context += context_instructions
-            combined_context += f"Document content for analysis:\n{vector_context}\n\n"
-            logger.info(f"Using enhanced vector store context with instructions ({len(combined_context)} total chars)")
-        elif context and not send_pdfs:
-            # Only use traditional context if no vector context is available
-            combined_context += context
-            logger.info("Using traditional document context (no vector context available)")
-        
-        if combined_context and not send_pdfs:
-            enhanced_prompt = f"{combined_context}\n\n{prompt}"
-        else:
-            enhanced_prompt = prompt
+        # Build structured prompt using advanced RAG prompt engineering
+        enhanced_prompt = build_structured_rag_prompt(
+            user_query=prompt,
+            vector_context=vector_context,
+            traditional_context=context if not send_pdfs else "",
+            conversation_history=conversation_history,
+            query_type={
+                'is_comprehensive': is_comprehensive_query,
+                'is_document_listing': is_document_listing,
+                'needs_full_context': needs_full_context,
+                'is_complex': any(indicator in prompt.lower() for indicator in complex_query_indicators),
+                'is_extraction': any(keyword in prompt.lower() for keyword in extraction_keywords) if 'extraction_keywords' in locals() else False
+            }
+        )
         
         # Add current user message with PDFs if needed
         current_content = []

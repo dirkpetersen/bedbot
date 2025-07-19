@@ -413,6 +413,40 @@ Check the console output for:
 
 ## Advanced Features
 
+### Advanced Prompt Engineering for RAG
+BedBot implements sophisticated prompt engineering techniques to improve RAG (Retrieval-Augmented Generation) accuracy and relevance:
+
+**Structured Prompt Templates:**
+- **Role-Task-Instructions Framework**: Clear separation of AI role, specific task, and detailed instructions
+- **Source Citation Integration**: Automatic inclusion of source attribution requirements in all prompts
+- **Query Type Detection**: Different prompt templates for comprehensive analysis, extraction, cross-document comparison, and standard Q&A
+- **Context Organization**: Logical separation of document context, conversation history, and user queries
+
+**Template Types:**
+1. **Comprehensive Analysis**: For queries requiring exhaustive document analysis
+2. **Cross-Document Comparison**: For relationship analysis across multiple documents  
+3. **Structured Extraction**: For finding and organizing specific information types
+4. **Detailed Explanation**: For complex questions requiring thorough explanations
+5. **Standard RAG**: For general document-based questions
+
+**Benefits:**
+- ✅ **Improved Accuracy**: Structured prompts reduce AI confusion and improve response quality
+- ✅ **Source Attribution**: Automatic citation of sources in format (Source: document_name.pdf)
+- ✅ **Consistent Formatting**: Standardized response structure across different query types
+- ✅ **Context Optimization**: Better utilization of available context window
+- ✅ **Reduced Hallucination**: Clear instructions minimize speculation beyond provided content
+
+**Implementation:**
+Uses `textwrap.dedent` for clean multiline prompt formatting and maintains separation of concerns between different prompt components.
+
+**Automatic Template Selection:**
+BedBot automatically selects the appropriate prompt template based on your query:
+- "What are all the requirements?" → **Comprehensive Analysis** template
+- "Compare document A with document B" → **Cross-Document Comparison** template  
+- "List all applicants" → **Structured Extraction** template
+- "How does this process work?" → **Detailed Explanation** template
+- "What is the main point?" → **Standard RAG** template
+
 ### Smart Extractor System
 The Smart Extractor is a revolutionary LLM→Regex hybrid approach that bypasses traditional context window limitations:
 
