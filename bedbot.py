@@ -18,6 +18,7 @@ from dotenv import load_dotenv
 import signal
 import sys
 import threading
+import contextlib
 
 # Map-Reduce extractor removed - using optimized Child-Parent-Grandparent approach instead
 
@@ -162,6 +163,25 @@ def generate_bucket_name():
     """Generate a unique bucket name with random suffix"""
     random_suffix = ''.join(random.choices(string.ascii_lowercase + string.digits, k=5))
     return f"bedbot-{random_suffix}"
+
+@contextlib.contextmanager
+def suppress_output():
+    """Context manager to suppress stdout and stderr output unless in debug mode"""
+    if DEBUG_MODE:
+        # In debug mode, don't suppress anything
+        yield
+    else:
+        # Suppress output in normal mode
+        with open(os.devnull, 'w') as devnull:
+            old_stdout = sys.stdout
+            old_stderr = sys.stderr
+            try:
+                sys.stdout = devnull
+                sys.stderr = devnull
+                yield
+            finally:
+                sys.stdout = old_stdout
+                sys.stderr = old_stderr
 
 def get_session_markdown_content(session_id: str, source_filter: str = None) -> str:
     """Get markdown content from session files for smart extraction"""
@@ -616,46 +636,47 @@ def pdf2markdown(pdf_input, is_bytes=False):
         Markdown string ready for LLM consumption
     """
     try:
-        # Use fitz text extraction
-        if is_bytes:
-            doc = fitz.open(stream=pdf_input, filetype="pdf")
-        else:
-            doc = fitz.open(pdf_input)
-        
-        markdown_parts = []
-        
-        # Process each page with fitz
-        total_pages = len(doc)
-        pages_with_content = 0
-        
-        logger.info(f"PDF has {total_pages} pages - processing all pages")
-        
-        for page_num in range(total_pages):
-            page = doc[page_num]
-            page_markdown = f"\n## Page {page_num + 1}\n\n"
+        # Use fitz text extraction with output suppression in normal mode
+        with suppress_output():
+            if is_bytes:
+                doc = fitz.open(stream=pdf_input, filetype="pdf")
+            else:
+                doc = fitz.open(pdf_input)
             
-            try:
-                # Use basic text extraction
-                text = page.get_text("text")
-                if text and text.strip():
-                    page_markdown += f"{text.strip()}\n\n"
-                    pages_with_content += 1
-                    
-                    # Log page content for debugging (first few and last few pages)
-                    if page_num < 3 or page_num >= total_pages - 3:
-                        text_preview = text.strip()[:200] + "..." if len(text.strip()) > 200 else text.strip()
-                        logger.info(f"📄 Page {page_num + 1} content preview: {text_preview}")
-                    
-            except Exception as e:
-                logger.warning(f"Error processing page {page_num + 1}: {e}")
-                page_markdown += "*Error extracting page content*\n\n"
+            markdown_parts = []
             
-            if page_markdown.strip() != f"## Page {page_num + 1}":
-                markdown_parts.append(page_markdown)
-        
-        logger.info(f"✅ Processed {total_pages} pages, {pages_with_content} pages contained text content")
-        
-        doc.close()
+            # Process each page with fitz
+            total_pages = len(doc)
+            pages_with_content = 0
+            
+            logger.info(f"PDF has {total_pages} pages - processing all pages")
+            
+            for page_num in range(total_pages):
+                page = doc[page_num]
+                page_markdown = f"\n## Page {page_num + 1}\n\n"
+                
+                try:
+                    # Use basic text extraction
+                    text = page.get_text("text")
+                    if text and text.strip():
+                        page_markdown += f"{text.strip()}\n\n"
+                        pages_with_content += 1
+                        
+                        # Log page content for debugging (first few and last few pages)
+                        if page_num < 3 or page_num >= total_pages - 3:
+                            text_preview = text.strip()[:200] + "..." if len(text.strip()) > 200 else text.strip()
+                            logger.info(f"📄 Page {page_num + 1} content preview: {text_preview}")
+                        
+                except Exception as e:
+                    logger.warning(f"Error processing page {page_num + 1}: {e}")
+                    page_markdown += "*Error extracting page content*\n\n"
+                
+                if page_markdown.strip() != f"## Page {page_num + 1}":
+                    markdown_parts.append(page_markdown)
+            
+            logger.info(f"✅ Processed {total_pages} pages, {pages_with_content} pages contained text content")
+            
+            doc.close()
         
         # Explicit cleanup to prevent memory leaks
         import gc
@@ -667,8 +688,14 @@ def pdf2markdown(pdf_input, is_bytes=False):
             return "# Document\n\n*No content could be extracted from this PDF*"
         
         full_content = "".join(markdown_parts)
-        doc_header = "# Document\n\n*Converted from PDF using fitz*\n\n"
-        doc_footer = f"\n\n---\n*Document processed: {len(markdown_parts)} pages*"
+        
+        # Only show conversion method in debug mode
+        if DEBUG_MODE:
+            doc_header = "# Document\n\n*Converted from PDF using fitz*\n\n"
+            doc_footer = f"\n\n---\n*Document processed: {len(markdown_parts)} pages*"
+        else:
+            doc_header = "# Document\n\n"
+            doc_footer = ""
         
         final_markdown = doc_header + full_content + doc_footer
         
