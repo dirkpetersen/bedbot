@@ -1728,7 +1728,7 @@ def call_bedrock(prompt, context="", pdf_files=None, conversation_history=None, 
                                         try:
                                             md_key = pdf_file['s3_key'].replace('.pdf', '.md')
                                             logger.info(f"Attempting to retrieve markdown from S3: {md_key}")
-                                            response = s3_client.get_object(Bucket=S3_BUCKET_NAME, Key=md_key)
+                                            response = s3_client.get_object(Bucket=s3_bucket_name, Key=md_key)
                                             markdown_content = response['Body'].read().decode('utf-8')
                                             logger.info(f"Retrieved markdown from S3 for {pdf_file['filename']} ({len(markdown_content)} chars)")
                                         except ClientError as s3_error:
