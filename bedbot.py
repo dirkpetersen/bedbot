@@ -1711,8 +1711,52 @@ def call_bedrock(prompt, context="", pdf_files=None, conversation_history=None, 
                     else:
                         logger.info("No relevant vector context found - check if documents are properly indexed")
                         
+                        # Try to index existing documents that were uploaded without vector store
+                        if pdf_files and len(pdf_files) > 0:
+                            logger.info("Attempting to index existing documents for vector store")
+                            try:
+                                indexed_count = 0
+                                for pdf_file in pdf_files:
+                                    # Check if we have markdown content for this PDF
+                                    if 'markdown_content' in pdf_file and pdf_file['markdown_content']:
+                                        success = vector_manager.add_document_from_content(
+                                            session_id=session['session_id'],
+                                            content=pdf_file['markdown_content'],
+                                            source_filename=pdf_file['filename'],
+                                            metadata={'type': 'pdf_markdown', 'indexed_on_demand': True}
+                                        )
+                                        if success:
+                                            indexed_count += 1
+                                            logger.info(f"Successfully indexed: {pdf_file['filename']}")
+                                
+                                if indexed_count > 0:
+                                    logger.info(f"Successfully indexed {indexed_count} documents for vector store")
+                                    # Retry the vector search now that documents are indexed
+                                    if is_comprehensive_query or is_document_listing or needs_full_context:
+                                        vector_context = vector_manager.get_all_documents_for_session(
+                                            session_id=session['session_id'],
+                                            max_chars=None,
+                                            force_full_retrieval=True
+                                        )
+                                        if vector_context:
+                                            logger.info(f"Retrieved context after indexing: {len(vector_context)} chars")
+                                    else:
+                                        vector_context = vector_manager.get_context_for_session(
+                                            session_id=session['session_id'],
+                                            query=prompt,
+                                            max_chunks=20,
+                                            max_chars=None,
+                                            extraction_mode=extraction_keywords and any(keyword in prompt.lower() for keyword in extraction_keywords) if 'extraction_keywords' in locals() else False
+                                        )
+                                        if vector_context:
+                                            logger.info(f"Retrieved targeted context after indexing: {len(vector_context)} chars")
+                                else:
+                                    logger.warning("No documents could be indexed - they may not have markdown content")
+                            except Exception as indexing_error:
+                                logger.error(f"Error indexing existing documents: {indexing_error}")
+                        
                         # Fallback: try to get any available context for comprehensive queries
-                        if is_comprehensive_query or is_document_listing:
+                        if not vector_context and (is_comprehensive_query or is_document_listing):
                             try:
                                 logger.info("Attempting fallback retrieval for comprehensive query")
                                 fallback_context = vector_manager.get_all_documents_for_session(
