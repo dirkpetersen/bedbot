@@ -1809,14 +1809,21 @@ def call_bedrock(prompt, context="", pdf_files=None, conversation_history=None, 
                 if 'output' in response and 'message' in response['output']:
                     message = response['output']['message']
                     if 'content' in message and isinstance(message['content'], list) and len(message['content']) > 0:
-                        content_item = message['content'][0]
-                        logger.info(f"Content item keys: {list(content_item.keys()) if isinstance(content_item, dict) else 'not a dict'}")
                         
-                        # Try different possible keys
-                        for key in ['text', 'message', 'content', 'response']:
-                            if isinstance(content_item, dict) and key in content_item:
-                                logger.info(f"Found content using key: {key}")
-                                return content_item[key]
+                        # For OpenAI models, look for the actual text response (usually not in the first item)
+                        for i, content_item in enumerate(message['content']):
+                            logger.info(f"Content item {i} keys: {list(content_item.keys()) if isinstance(content_item, dict) else 'not a dict'}")
+                            
+                            # Skip reasoning content, look for actual text response
+                            if isinstance(content_item, dict) and 'text' in content_item:
+                                logger.info(f"Found text content in item {i}")
+                                return content_item['text']
+                            
+                            # Try other possible keys
+                            for key in ['message', 'content', 'response']:
+                                if isinstance(content_item, dict) and key in content_item:
+                                    logger.info(f"Found content using key: {key} in item {i}")
+                                    return content_item[key]
                 
                 return f"❌ **Response Parsing Error:** Unable to extract text from model response. Response structure: {type(response)}"
             
