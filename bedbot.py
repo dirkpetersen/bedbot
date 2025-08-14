@@ -346,7 +346,10 @@ def create_s3_bucket():
         
     except Exception as e:
         logger.error(f"Failed to create S3 bucket: {e}")
-        logger.warning("Falling back to local filesystem mode due to S3 bucket creation failure")
+        logger.error(f"S3 bucket creation error details: {type(e).__name__}: {str(e)}")
+        logger.warning("⚠️  FALLING BACK TO LOCAL FILESYSTEM MODE ⚠️")
+        logger.warning("Files will be saved locally instead of S3")
+        logger.warning("To use S3 mode: check AWS credentials, permissions, and region configuration")
         s3_bucket_name = None
         USE_S3_BUCKET = False
         return False
@@ -609,11 +612,80 @@ def handle_flask_restart_bucket():
         logger.warning("Flask debug restart detected but no existing bucket name found")
         USE_S3_BUCKET = False
 
-# Allowed file extensions
-ALLOWED_EXTENSIONS = {'txt', 'pdf', 'doc', 'docx', 'md', 'json', 'csv'}
+# Allowed file extensions (doc removed - only docx supported for Word documents)
+ALLOWED_EXTENSIONS = {'txt', 'pdf', 'docx', 'md', 'json', 'csv'}
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+def check_pandoc_availability():
+    """Check if pandoc and xelatex are available on the system"""
+    try:
+        import subprocess
+        
+        # Check pandoc
+        pandoc_result = subprocess.run(['pandoc', '--version'], capture_output=True, text=True, timeout=5)
+        if pandoc_result.returncode != 0:
+            logger.warning("Pandoc not available or failed version check")
+            return False
+        
+        # Check xelatex (required for PDF generation)
+        xelatex_result = subprocess.run(['xelatex', '--version'], capture_output=True, text=True, timeout=5)
+        if xelatex_result.returncode != 0:
+            logger.warning("XeLaTeX not available or failed version check - required for DOCX to PDF conversion")
+            return False
+        
+        logger.info("Pandoc and XeLaTeX are both available for DOCX conversion")
+        return True
+        
+    except (subprocess.TimeoutExpired, FileNotFoundError, Exception) as e:
+        logger.warning(f"Error checking Pandoc/XeLaTeX availability: {e}")
+        return False
+
+def convert_docx_to_pdf(docx_path, output_dir):
+    """
+    Convert DOCX file to PDF using pandoc if available.
+    Returns the path to the generated PDF file, or None if conversion fails.
+    """
+    try:
+        import subprocess
+        
+        if not check_pandoc_availability():
+            logger.warning("Pandoc not available - cannot convert DOCX to PDF")
+            return None
+        
+        # Generate PDF filename
+        docx_basename = os.path.splitext(os.path.basename(docx_path))[0]
+        pdf_filename = f"{docx_basename}.pdf"
+        pdf_path = os.path.join(output_dir, pdf_filename)
+        
+        # Run pandoc conversion with proper geometry options
+        cmd = [
+            'pandoc',
+            docx_path,
+            '-o', pdf_path,
+            '--pdf-engine=xelatex',  # Use xelatex for better Unicode support
+            '-V', 'geometry:margin=1in'  # Correct way to set margins
+        ]
+        
+        logger.info(f"Converting DOCX to PDF: {docx_path} -> {pdf_path}")
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+        
+        if result.returncode == 0 and os.path.exists(pdf_path):
+            logger.info(f"Successfully converted DOCX to PDF: {pdf_path}")
+            return pdf_path
+        else:
+            error_msg = result.stderr.strip() if result.stderr else "Unknown error"
+            logger.error(f"Pandoc conversion failed with return code {result.returncode}: {error_msg}")
+            # Return None to indicate failure, calling code will handle user notification
+            return None
+            
+    except subprocess.TimeoutExpired:
+        logger.error("Pandoc conversion timed out")
+        return None
+    except Exception as e:
+        logger.error(f"Error converting DOCX to PDF: {e}")
+        return None
 
 
 # PDF merging functionality removed - no longer supported
@@ -2273,8 +2345,19 @@ def upload_files():
         pdf_files_info = {}  # Track PDF info by file key
         
         for file in files_to_process:
-            if file and file.filename and allowed_file(file.filename):
-                logger.info(f"Processing file: {file.filename}")
+            if file and file.filename:
+                # Check for unsupported .doc files and provide helpful message
+                if file.filename.lower().endswith('.doc'):
+                    logger.info(f"Rejecting .doc file (not supported): {file.filename}")
+                    uploaded_files.append({
+                        'filename': file.filename,
+                        'status': 'error',
+                        'message': '.doc files are not supported. Please convert to .docx format or upload as PDF.'
+                    })
+                    continue
+                
+                if allowed_file(file.filename):
+                    logger.info(f"Processing file: {file.filename}")
                 # Check file size
                 file.seek(0, 2)  # Seek to end
                 file_size = file.tell()
@@ -2292,9 +2375,70 @@ def upload_files():
                     s3_key = f"{session_location}{timestamped_filename}"
                     
                     try:
-                        # Upload original file
-                        s3_client.upload_fileobj(file, s3_bucket_name, s3_key)
-                        logger.info(f"Uploaded file to S3: s3://{s3_bucket_name}/{s3_key}")
+                        # Check if this is a DOCX file that should be converted to PDF
+                        if filename.lower().endswith('.docx'):
+                            if not check_pandoc_availability():
+                                # Pandoc or XeLaTeX not available - reject DOCX files
+                                logger.error(f"DOCX file uploaded but Pandoc/XeLaTeX not available: {filename}")
+                                uploaded_files.append({
+                                    'filename': file.filename,
+                                    'status': 'error',
+                                    'message': 'DOCX files require Pandoc and XeLaTeX for PDF conversion. Please install both or upload PDF files instead.'
+                                })
+                                continue
+                            
+                            logger.info(f"DOCX file detected, converting to PDF: {filename}")
+                            
+                            # Create temporary directory for conversion
+                            temp_dir = tempfile.mkdtemp()
+                            try:
+                                # Save DOCX to temp file
+                                temp_docx_path = os.path.join(temp_dir, filename)
+                                file.seek(0)  # Reset file pointer
+                                with open(temp_docx_path, 'wb') as temp_file:
+                                    temp_file.write(file.read())
+                                
+                                # Convert DOCX to PDF
+                                pdf_path = convert_docx_to_pdf(temp_docx_path, temp_dir)
+                                
+                                if pdf_path and os.path.exists(pdf_path):
+                                    # Update filename and s3_key for PDF
+                                    pdf_filename = os.path.basename(pdf_path)
+                                    pdf_timestamped_filename = f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{pdf_filename}"
+                                    s3_key = f"{session_location}{pdf_timestamped_filename}"
+                                    timestamped_filename = pdf_timestamped_filename
+                                    
+                                    # Upload converted PDF to S3
+                                    with open(pdf_path, 'rb') as pdf_file:
+                                        s3_client.upload_fileobj(pdf_file, s3_bucket_name, s3_key)
+                                    
+                                    logger.info(f"Uploaded converted PDF to S3: s3://{s3_bucket_name}/{s3_key}")
+                                    
+                                    # Send status update
+                                    if status_session_id:
+                                        send_status_update(status_session_id, "Convert", f"Converted {file.filename} to PDF")
+                                else:
+                                    # Conversion failed - reject the file, don't upload DOCX
+                                    logger.error(f"DOCX to PDF conversion failed for {filename}")
+                                    
+                                    # Send status update about the failure
+                                    if status_session_id:
+                                        send_status_update(status_session_id, "Error", f"Failed to convert {file.filename} to PDF")
+                                    
+                                    uploaded_files.append({
+                                        'filename': file.filename,
+                                        'status': 'error',
+                                        'message': 'DOCX to PDF conversion failed. Check that Pandoc and LaTeX are properly installed.'
+                                    })
+                                    continue
+                            finally:
+                                # Clean up temp directory
+                                import shutil
+                                shutil.rmtree(temp_dir, ignore_errors=True)
+                        else:
+                            # Upload original file (non-DOCX)
+                            s3_client.upload_fileobj(file, s3_bucket_name, s3_key)
+                            logger.info(f"Uploaded file to S3: s3://{s3_bucket_name}/{s3_key}")
                         
                         # Handle file content based on type
                         try:
@@ -2438,8 +2582,65 @@ def upload_files():
                     # Local mode - save to local filesystem
                     filepath = os.path.join(session_location, timestamped_filename)
                     
-                    # Save original file
-                    file.save(filepath)
+                    # Check if this is a DOCX file that should be converted to PDF
+                    if filename.lower().endswith('.docx'):
+                        if not check_pandoc_availability():
+                            # Pandoc or XeLaTeX not available - reject DOCX files
+                            logger.error(f"DOCX file uploaded but Pandoc/XeLaTeX not available: {filename}")
+                            uploaded_files.append({
+                                'filename': file.filename,
+                                'status': 'error',
+                                'message': 'DOCX files require Pandoc and XeLaTeX for PDF conversion. Please install both or upload PDF files instead.'
+                            })
+                            continue
+                        
+                        logger.info(f"DOCX file detected, converting to PDF: {filename}")
+                        
+                        # Save original DOCX file temporarily for conversion
+                        temp_docx_path = filepath
+                        file.save(temp_docx_path)
+                        
+                        # Convert DOCX to PDF
+                        pdf_path = convert_docx_to_pdf(temp_docx_path, session_location)
+                        
+                        if pdf_path and os.path.exists(pdf_path):
+                            # Update filepath to point to converted PDF
+                            filepath = pdf_path
+                            timestamped_filename = os.path.basename(pdf_path)
+                            logger.info(f"Using converted PDF: {filepath}")
+                            
+                            # Clean up the temporary DOCX file - we only want the PDF
+                            try:
+                                os.remove(temp_docx_path)
+                                logger.info(f"Cleaned up temporary DOCX file: {temp_docx_path}")
+                            except Exception as e:
+                                logger.warning(f"Could not remove temporary DOCX file {temp_docx_path}: {e}")
+                            
+                            # Send status update
+                            if status_session_id:
+                                send_status_update(status_session_id, "Convert", f"Converted {file.filename} to PDF")
+                        else:
+                            # Conversion failed - reject the file, clean up DOCX
+                            logger.error(f"DOCX to PDF conversion failed for {filename}")
+                            
+                            # Send status update about the failure
+                            if status_session_id:
+                                send_status_update(status_session_id, "Error", f"Failed to convert {file.filename} to PDF")
+                            
+                            try:
+                                os.remove(temp_docx_path)
+                            except Exception as e:
+                                logger.warning(f"Could not remove failed DOCX file {temp_docx_path}: {e}")
+                            
+                            uploaded_files.append({
+                                'filename': file.filename,
+                                'status': 'error',
+                                'message': 'DOCX to PDF conversion failed. Check that Pandoc and LaTeX are properly installed.'
+                            })
+                            continue
+                    else:
+                        # Save original file (non-DOCX)
+                        file.save(filepath)
                     
                     # Handle file content based on type
                     content = read_file_content(filepath, is_s3=False)
@@ -2743,7 +2944,22 @@ def upload_files():
                     # For S3, we could get object size but it's optional for display
                     total_context_length += 50000  # Rough estimate for display
         
-        context_display = f"{len(total_content)} text chars{pdf_context_note}" if pdf_context_note else f"{total_context_length} chars"
+        # Create detailed breakdown of processed files
+        successful_files = len(current_uploaded_files)  # Files that made it to session
+        text_files = len([f for f in current_uploaded_files if f.get('type') != 'pdf'])
+        pdf_files = len(current_pdf_files)
+        
+        # Build clear context display
+        context_parts = []
+        if text_files > 0:
+            context_parts.append(f"{text_files} text file(s)")
+        if pdf_files > 0:
+            context_parts.append(f"{pdf_files} PDF(s)")
+        
+        if context_parts:
+            context_display = f"{len(total_content)} text chars from {', '.join(context_parts)}"
+        else:
+            context_display = "No content processed"
         
         logger.info(f"Returning to frontend - uploaded_files count: {len(current_uploaded_files)}")
         logger.info(f"Files being returned: {[f['filename'] for f in current_uploaded_files]}")
@@ -2800,8 +3016,18 @@ def upload_files():
         total_llm_content_mib = total_llm_content_bytes / (1024 * 1024)
         llm_content_size_display = f"{total_llm_content_mib:.3f} MiB" if total_llm_content_bytes > 0 else "0.000 MiB"
         
+        # Create informative success message
+        total_uploaded = len(uploaded_files)
+        successful_files = len(current_uploaded_files)  
+        failed_files = total_uploaded - successful_files
+        
+        if failed_files > 0:
+            message = f'Processed {total_uploaded} files: {successful_files} successful, {failed_files} failed/rejected'
+        else:
+            message = f'Successfully processed all {total_uploaded} files'
+        
         result = {
-            'message': f'Successfully processed {len(uploaded_files)} files',
+            'message': message,
             'files': uploaded_files,
             'context_length': total_context_length,
             'context_display': context_display,
@@ -2812,8 +3038,11 @@ def upload_files():
         
         # Send final status update
         if status_session_id:
-            send_status_update(status_session_id, "Complete", 
-                             f"Successfully processed {len(uploaded_files)} file(s) - Ready for chat!")
+            if failed_files > 0:
+                status_msg = f"Processed {total_uploaded} files ({successful_files} successful, {failed_files} failed) - Ready for chat!"
+            else:
+                status_msg = f"Successfully processed all {total_uploaded} files - Ready for chat!"
+            send_status_update(status_session_id, "Complete", status_msg)
         
         request_end_time = time.time()
         request_duration = request_end_time - request_start_time
@@ -3642,15 +3871,20 @@ if __name__ == '__main__':
     # Handle S3 bucket creation/loading based on Flask startup mode
     if USE_S3_BUCKET and not os.environ.get('WERKZEUG_RUN_MAIN'):
         # Initial startup - create new bucket
+        logger.info("🪣 Attempting to create S3 bucket for file storage...")
         bucket_created = create_s3_bucket()
         if not bucket_created:
-            logger.info("Switched to local filesystem mode (--no-bucket equivalent)")
+            logger.warning("❌ S3 bucket creation failed - switched to local filesystem mode")
         else:
-            logger.info(f"S3 bucket created successfully: {s3_bucket_name}")
+            logger.info(f"✅ S3 bucket created successfully: {s3_bucket_name}")
     elif USE_S3_BUCKET and os.environ.get('WERKZEUG_RUN_MAIN'):
         # Flask debug restart - load existing bucket
+        logger.info("🔄 Flask debug restart - loading existing S3 bucket...")
         handle_flask_restart_bucket()
-        logger.info(f"S3 bucket loaded from restart: {s3_bucket_name}")
+        if USE_S3_BUCKET and s3_bucket_name:
+            logger.info(f"✅ S3 bucket loaded from restart: {s3_bucket_name}")
+        else:
+            logger.warning("❌ Failed to load S3 bucket from restart - using local mode")
 
     # Initialize vector store manager independently
     if USE_VECTOR_STORE:
@@ -3658,7 +3892,26 @@ if __name__ == '__main__':
     initialize_vector_store_if_enabled()
 
     try:
-        logger.info("Starting BedBot application...")
+        # Show final configuration summary
+        logger.info("=" * 60)
+        logger.info("🚀 STARTING BEDBOT APPLICATION")
+        logger.info("=" * 60)
+        if USE_S3_BUCKET:
+            logger.info(f"📁 STORAGE MODE: S3 (bucket: {s3_bucket_name})")
+            logger.info("   Files will be uploaded to AWS S3")
+        else:
+            logger.info("📁 STORAGE MODE: Local filesystem")
+            logger.info("   Files will be saved to temporary local directories")
+        
+        if USE_VECTOR_STORE:
+            logger.info("🔍 VECTOR STORE: Enabled")
+        else:
+            logger.info("🔍 VECTOR STORE: Disabled")
+            
+        logger.info(f"🧠 DEFAULT MODEL: {BEDROCK_MODEL.split(',')[0].strip()}")
+        logger.info("🌐 SERVER: http://localhost:5000")
+        logger.info("=" * 60)
+        
         app.run(debug=True, host='0.0.0.0', port=5000)
     except KeyboardInterrupt:
         # This shouldn't be reached due to signal handler, but kept as fallback

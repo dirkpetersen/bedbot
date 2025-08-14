@@ -61,7 +61,8 @@ BedBot is a powerful AI chat assistant powered by AWS Bedrock that allows you to
 ## Features
 
 - **AI-Powered Conversations**: Chat with AWS Bedrock models (Claude, Nova, Llama, DeepSeek, OpenAI) for intelligent responses
-- **Document Analysis**: Upload and analyze multiple document types (PDF, TXT, DOC, DOCX, MD, JSON, CSV)
+- **Document Analysis**: Upload and analyze multiple document types (PDF, TXT, DOCX, MD, JSON, CSV)
+- **DOCX to PDF Conversion**: Automatic conversion of DOCX files to PDF using Pandoc (required for DOCX support)
 - **Smart Extractor System**: LLM→Regex hybrid approach for comprehensive document analysis that bypasses context window limits
 - **Vector Store Integration**: Optional FAISS-based semantic search with hierarchical chunking for enhanced document retrieval
 - **PDF Processing**: Advanced PDF handling with automatic merging and content extraction
@@ -169,6 +170,25 @@ If you haven't set up AWS yet, you'll need AWS credentials from your AWS adminis
    ```bash
    pip install -r requirements.txt
    ```
+
+3. **Install Pandoc for DOCX Support (Required)**
+
+   To upload DOCX files, you must install Pandoc for automatic PDF conversion:
+
+   **Ubuntu/Debian:**
+   ```bash
+   sudo apt-get install pandoc texlive-xetex
+   ```
+
+   **macOS:**
+   ```bash
+   brew install pandoc
+   brew install --cask mactex
+   ```
+
+   **Windows:**
+   - Download Pandoc from https://pandoc.org/installing.html
+   - Install MiKTeX from https://miktex.org/download
    
    **Optional: Vector Store Dependencies**
    ```bash
@@ -254,12 +274,13 @@ python bedbot.py --debug
 
 1. **Upload Documents:**
    - Click the upload area or drag and drop files
-   - Supported formats: PDF, TXT, DOC, DOCX, MD, JSON, CSV
+   - Supported formats: PDF, TXT, DOCX, MD, JSON, CSV (Note: .doc files not supported, use .docx)
    - Maximum file size: 4.5MB per file (local mode) or unlimited (S3 mode)
    - Maximum files: 1000 per session
 
 2. **Document Processing:**
    - PDFs are processed using Bedrock's native document understanding capabilities
+   - DOCX files are automatically converted to PDF using Pandoc (required - files rejected if Pandoc unavailable)
    - Text files are extracted and added to conversation context
    - Multiple PDFs are automatically merged in S3 mode for better analysis
 
@@ -362,10 +383,11 @@ aws s3 ls --profile bedbot
 ```
 
 #### 4. File upload fails
-**Cause**: File too large or unsupported format
+**Cause**: File too large, unsupported format, or DOCX without Pandoc
 **Solution**:
 - Check file size (4.5MB limit in local mode)
 - Verify file format is supported
+- For DOCX files: Install Pandoc (see installation section)
 - Try S3 mode for larger files: remove `--no-bucket` flag
 
 #### 5. Voice input not working
@@ -390,6 +412,23 @@ pip install faiss-cpu sentence-transformers
 # Set environment variable
 VECTOR_STORE=1 python bedbot.py
 ```
+
+#### 8. DOCX files not uploading
+**Cause**: Pandoc not installed, LaTeX not installed, or conversion failed
+**Solution**:
+- Install complete requirements: `sudo apt-get install pandoc texlive-xetex` (Ubuntu/Debian)
+- macOS: `brew install pandoc && brew install --cask mactex`
+- Verify Pandoc: `pandoc --version`
+- Verify XeLaTeX: `xelatex --version`
+- Alternative: Convert DOCX to PDF manually before uploading
+- **Note**: DOCX files are never stored - they are always converted to PDF first
+
+#### 9. .doc files rejected
+**Cause**: .doc format not supported (only .docx supported for Word documents)
+**Solution**:
+- Convert .doc files to .docx format in Microsoft Word
+- Alternative: Export .doc files as PDF from Microsoft Word
+- Use LibreOffice to convert: File → Export as PDF or File → Save As → .docx
 
 ### Debug Mode
 
