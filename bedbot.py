@@ -848,11 +848,8 @@ VERY IMPORTANT:
                         "topP": 0.9
                     }
                     
-                    response = bedrock_client.converse(
-                        modelId=model_id,
-                        messages=messages,
-                        inferenceConfig=inference_config
-                    )
+                    api_params = get_bedrock_api_params(model_id, messages, inference_config)
+                    response = bedrock_client.converse(**api_params)
                     
                     markdown_content = response['output']['message']['content'][0]['text']
                     logger.info(f"Successfully converted PDF to markdown using S3 location ({len(markdown_content)} characters)")
@@ -930,11 +927,8 @@ VERY IMPORTANT:
             
             logger.info(f"Sending PDF conversion request to Bedrock model: {model_id} (attempt {attempt + 1})")
             
-            response = bedrock_client.converse(
-                modelId=model_id,
-                messages=messages,
-                inferenceConfig=inference_config
-            )
+            api_params = get_bedrock_api_params(model_id, messages, inference_config)
+            response = bedrock_client.converse(**api_params)
             
             markdown_content = response['output']['message']['content'][0]['text']
             logger.info(f"Successfully converted PDF to markdown ({len(markdown_content)} characters)")
@@ -1226,11 +1220,8 @@ def send_bedrock_message(messages):
     logger.info(f"send_bedrock_message using model: {current_model}")
     
     try:
-        response = bedrock_client.converse(
-            modelId=current_model,
-            messages=messages,
-            inferenceConfig=inference_config
-        )
+        api_params = get_bedrock_api_params(current_model, messages, inference_config)
+        response = bedrock_client.converse(**api_params)
         return response['output']['message']['content'][0]['text']
     except ClientError as api_error:
         logger.error(f"send_bedrock_message failed with model {current_model}: {api_error}")
@@ -1241,6 +1232,26 @@ def send_bedrock_message(messages):
             raise api_error
         else:
             raise api_error
+
+def get_bedrock_api_params(model_id, messages, inference_config):
+    """
+    Build Bedrock API parameters with appropriate headers for different models.
+    Adds 1M token context window for Claude Sonnet 4 models.
+    """
+    params = {
+        "modelId": model_id,
+        "messages": messages,
+        "inferenceConfig": inference_config
+    }
+    
+    # Add extended context window for Claude Sonnet 4 models
+    if "anthropic.claude-sonnet-4-" in model_id:
+        params["additionalModelRequestFields"] = {
+            "anthropic_beta": ["context-1m-2025-08-07"]
+        }
+        logger.info(f"Added 1M token context window for Claude Sonnet 4 model: {model_id}")
+    
+    return params
 
 def build_structured_rag_prompt(user_query, vector_context="", traditional_context="", conversation_history=None, query_type=None, current_model=None):
     """
@@ -1428,11 +1439,12 @@ def call_bedrock(prompt, context="", pdf_files=None, conversation_history=None, 
     
     # Test if the model is actually available
     try:
-        test_response = bedrock_client.converse(
-            modelId=current_model,
-            messages=[{"role": "user", "content": [{"text": "test"}]}],
-            inferenceConfig={"maxTokens": 10, "temperature": 0.1}
+        api_params = get_bedrock_api_params(
+            current_model,
+            [{"role": "user", "content": [{"text": "test"}]}],
+            {"maxTokens": 10, "temperature": 0.1}
         )
+        test_response = bedrock_client.converse(**api_params)
         logger.info(f"Model {current_model} is accessible")
     except ClientError as test_error:
         logger.error(f"Model {current_model} test failed: {test_error}")
@@ -1769,11 +1781,8 @@ def call_bedrock(prompt, context="", pdf_files=None, conversation_history=None, 
             logger.info("=== END DEBUG ===")
         
         try:
-            response = bedrock_client.converse(
-                modelId=current_model,
-                messages=messages,
-                inferenceConfig=inference_config
-            )
+            api_params = get_bedrock_api_params(current_model, messages, inference_config)
+            response = bedrock_client.converse(**api_params)
             
             return response['output']['message']['content'][0]['text']
             
@@ -1871,11 +1880,8 @@ def call_bedrock(prompt, context="", pdf_files=None, conversation_history=None, 
                 
                 logger.info(f"Retrying request with {len(retry_content)} content items using bytes method")
                 
-                retry_response = bedrock_client.converse(
-                    modelId=current_model,
-                    messages=retry_messages,
-                    inferenceConfig=inference_config
-                )
+                retry_api_params = get_bedrock_api_params(current_model, retry_messages, inference_config)
+                retry_response = bedrock_client.converse(**retry_api_params)
                 
                 return retry_response['output']['message']['content'][0]['text']
             else:
@@ -2883,11 +2889,12 @@ def test_models():
         for model in models:
             try:
                 # Test each model with a simple request
-                test_response = bedrock_client.converse(
-                    modelId=model,
-                    messages=[{"role": "user", "content": [{"text": "test"}]}],
-                    inferenceConfig={"maxTokens": 10, "temperature": 0.1}
+                api_params = get_bedrock_api_params(
+                    model,
+                    [{"role": "user", "content": [{"text": "test"}]}],
+                    {"maxTokens": 10, "temperature": 0.1}
                 )
+                test_response = bedrock_client.converse(**api_params)
                 test_results.append({
                     'model': model,
                     'status': 'available',

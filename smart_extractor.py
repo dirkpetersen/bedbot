@@ -121,18 +121,32 @@ class SmartExtractor:
             pattern_prompt = self._create_pattern_prompt(sample_content, extraction_type)
             
             logger.info("🧠 Sending pattern development request to LLM...")
-            response = self.bedrock_client.converse(
-                modelId=self.model_id,
-                messages=[{
-                    "role": "user",
-                    "content": [{"text": pattern_prompt}]
-                }],
-                inferenceConfig={
-                    "maxTokens": 2000,
-                    "temperature": 0.1,  # Low temperature for precise pattern development
-                    "topP": 0.9
+            
+            # Build API parameters with Claude Sonnet 4 context window support
+            messages = [{
+                "role": "user",
+                "content": [{"text": pattern_prompt}]
+            }]
+            inference_config = {
+                "maxTokens": 2000,
+                "temperature": 0.1,  # Low temperature for precise pattern development
+                "topP": 0.9
+            }
+            
+            api_params = {
+                "modelId": self.model_id,
+                "messages": messages,
+                "inferenceConfig": inference_config
+            }
+            
+            # Add extended context window for Claude Sonnet 4 models
+            if "anthropic.claude-sonnet-4-" in self.model_id:
+                api_params["additionalModelRequestFields"] = {
+                    "anthropic_beta": ["context-1m-2025-08-07"]
                 }
-            )
+                logger.info(f"Added 1M token context window for Claude Sonnet 4 model: {self.model_id}")
+            
+            response = self.bedrock_client.converse(**api_params)
             
             response_text = response['output']['message']['content'][0]['text']
             
