@@ -26,7 +26,7 @@ It was developed to ensure that 100s of PDFs can be analysed is a RAG style appl
 1. **Upload**: Files stored in session-specific locations (S3 prefix or local folder)
 2. **PDF Processing**: 
    - Local conversion using PyMuPDF (fitz) when `PDF_LOCAL_CONVERT=1`
-   - Bedrock conversion using Nova models (default)
+   - Bedrock conversion using native document understanding (default)
    - Parallel processing for multiple PDFs
 3. **Vector Store Integration**: Documents chunked and indexed for semantic search
 4. **Context Building**: Text content and PDF markdown fed to Bedrock for conversation
@@ -42,7 +42,7 @@ python bedbot.py --no-bucket
 python bedbot.py --debug
 
 # Custom model
-python bedbot.py --model us.amazon.nova-lite-v1:0
+python bedbot.py --model us.anthropic.claude-sonnet-4-20250514-v1:0
 
 # With vector store enabled
 VECTOR_STORE=1 python bedbot.py
@@ -74,7 +74,7 @@ aws bedrock list-foundation-models --profile bedbot --region us-east-1
 AWS_PROFILE=bedbot
 AWS_DEFAULT_REGION=us-east-1
 SECRET_KEY=your-secret-key-change-this
-BEDROCK_MODEL=us.amazon.nova-premier-v1:0
+BEDROCK_MODEL=us.anthropic.claude-sonnet-4-20250514-v1:0
 VECTOR_STORE=0  # Set to 1 to enable, note this should only enable the vector store, the user still needs to activate it with a checkbox 
 PDF_LOCAL_CONVERT=0  # Set to 1 for local PDF processing
 BEDROCK_TIMEOUT=900  # Timeout in seconds
@@ -112,7 +112,7 @@ BEDROCK_TIMEOUT=900  # Timeout in seconds
 
 ### PDF Processing Strategy
 The app supports two PDF conversion methods:
-- **Bedrock Native**: Uses Nova models' document understanding (default)
+- **Bedrock Native**: Uses Bedrock's native document understanding (default)
 - **Local Processing**: Uses PyMuPDF for text extraction (`PDF_LOCAL_CONVERT=1`)
 Bedrock native is very accurate but 
 

@@ -63,7 +63,7 @@ except ImportError as e:
 parser = argparse.ArgumentParser(description='BedBot - AI Chat Assistant')
 parser.add_argument('--no-bucket', action='store_true', help='Use local filesystem instead of S3 bucket')
 parser.add_argument('--debug', action='store_true', help='Enable debug mode to print API messages')
-parser.add_argument('--model', action='store', help='Bedrock model to use', default='us.amazon.nova-premier-v1:0')
+parser.add_argument('--model', action='store', help='Bedrock model to use', default='us.anthropic.claude-sonnet-4-20250514-v1:0')
 args = parser.parse_args()
 
 # Configuration
@@ -1143,7 +1143,7 @@ def build_pdf_content(pdf_files):
                 s3_key = pdf_info['s3_key']
                 
                 if 'nooooooooova' in current_model.lower():
-                    # Nova models support S3Location
+                    # Modern Bedrock models support S3Location
                     try:
                         account_id = session_aws.client('sts').get_caller_identity()['Account']
                         logger.info(f"Adding PDF document from S3 location: {doc_name}")
@@ -1175,7 +1175,7 @@ def build_pdf_content(pdf_files):
                             }
                         })
                 else:
-                    # Non-Nova models - use bytes method directly
+                    # Legacy models - use bytes method directly
                     response = s3_client.get_object(Bucket=s3_bucket_name, Key=s3_key)
                     pdf_bytes = response['Body'].read()
                     logger.info(f"Adding PDF document (downloaded from S3): {doc_name}")
