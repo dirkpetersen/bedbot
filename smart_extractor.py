@@ -139,7 +139,8 @@ class SmartExtractor:
                 "inferenceConfig": inference_config
             }
             
-            # Add extended context window for Claude Sonnet 4 models
+            # Add extended context window for Claude Sonnet 4 models only
+            # Note: Claude Opus 4 doesn't support the context-1m-2025-08-07 beta flag
             if "anthropic.claude-sonnet-4-" in self.model_id:
                 api_params["additionalModelRequestFields"] = {
                     "anthropic_beta": ["context-1m-2025-08-07"]
