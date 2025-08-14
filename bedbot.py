@@ -1979,7 +1979,7 @@ def call_bedrock(prompt, context="", pdf_files=None, conversation_history=None, 
         
         # Check for specific error types that should be shown to the user
         if 'ValidationException' in error_message and 'Input is too long' in error_message:
-            return "❌ **Error: Input is too long for the selected model.**\n\nThe uploaded documents and conversation history exceed the model's context limit. Please try:\n\n• Removing some uploaded files\n• Using a model with a larger context window\n• Splitting your request into smaller parts"
+            return "❌ **Error: Input is too long for the selected model.**\n\nThe uploaded documents and conversation history exceed the model's context limit. Please try:\n\n• Removing some uploaded files\n• Using a model with a larger context window\n• Check 'Use Vector Store' to enable chunked document processing"
         elif 'ValidationException' in error_message:
             return f"❌ **Validation Error:** {error_message}"
         elif 'ThrottlingException' in error_message:
