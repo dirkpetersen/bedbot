@@ -256,6 +256,32 @@
             color: #333;
             border-bottom-left-radius: 4px;
             border: 1px solid #e9ecef;
+            position: relative;
+        }
+        
+        .copy-button {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            background: transparent;
+            border: none;
+            color: #6c757d;
+            font-size: 12px;
+            cursor: pointer;
+            padding: 4px;
+            border-radius: 4px;
+            opacity: 0.7;
+            transition: all 0.2s ease;
+        }
+        
+        .copy-button:hover {
+            background: rgba(0, 0, 0, 0.05);
+            opacity: 1;
+            color: #495057;
+        }
+        
+        .message.bot .message-content:hover .copy-button {
+            opacity: 1;
         }
 
         /* Markdown content styling */
@@ -1114,9 +1140,9 @@
                 const data = await response.json();
                 
                 if (response.ok) {
-                    addMessage(data.response, 'bot');
+                    addMessage(data.response, 'bot', data.raw_markdown);
                 } else {
-                    addMessage(`Error: ${data.error}`, 'bot');
+                    addMessage(`Error: ${data.error}`, 'bot', data.raw_markdown);
                 }
             } catch (error) {
                 addMessage('Sorry, there was an error processing your request.', 'bot');
@@ -1125,7 +1151,7 @@
             }
         }
 
-        function addMessage(content, sender) {
+        function addMessage(content, sender, rawMarkdown = null) {
             const messageDiv = document.createElement('div');
             messageDiv.className = `message ${sender}`;
             
@@ -1139,6 +1165,29 @@
             // For bot messages, treat content as HTML; for user messages, treat as text
             if (sender === 'bot') {
                 messageContent.innerHTML = content;
+                
+                // Add copy button for bot messages if raw markdown is available
+                if (rawMarkdown) {
+                    const copyButton = document.createElement('button');
+                    copyButton.className = 'copy-button';
+                    copyButton.innerHTML = '<i class="fas fa-copy"></i>';
+                    copyButton.title = 'Copy raw markdown';
+                    copyButton.onclick = function(e) {
+                        e.preventDefault();
+                        copyToClipboard(rawMarkdown);
+                        
+                        // Visual feedback
+                        const originalHTML = copyButton.innerHTML;
+                        copyButton.innerHTML = '<i class="fas fa-check"></i>';
+                        copyButton.style.color = '#4CAF50';
+                        setTimeout(() => {
+                            copyButton.innerHTML = originalHTML;
+                            copyButton.style.color = '';
+                        }, 1000);
+                    };
+                    
+                    messageContent.appendChild(copyButton);
+                }
             } else {
                 messageContent.textContent = content;
             }
@@ -1150,6 +1199,25 @@
             const activeChatContainer = getActiveChatContainer();
             activeChatContainer.appendChild(messageDiv);
             activeChatContainer.scrollTop = activeChatContainer.scrollHeight;
+        }
+        
+        function copyToClipboard(text) {
+            if (navigator.clipboard && window.isSecureContext) {
+                // Modern async clipboard API
+                navigator.clipboard.writeText(text);
+            } else {
+                // Fallback for older browsers
+                const textArea = document.createElement('textarea');
+                textArea.value = text;
+                textArea.style.position = 'fixed';
+                textArea.style.left = '-999999px';
+                textArea.style.top = '-999999px';
+                document.body.appendChild(textArea);
+                textArea.focus();
+                textArea.select();
+                document.execCommand('copy');
+                textArea.remove();
+            }
         }
 
         function showTyping() {

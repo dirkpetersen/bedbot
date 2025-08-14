@@ -2176,6 +2176,7 @@ def chat():
             bot_response_html = convert_markdown_to_html(bot_response)
             return jsonify({
                 'response': bot_response_html,
+                'raw_markdown': bot_response,  # Send raw markdown for copy functionality
                 'timestamp': datetime.now().isoformat(),
                 'error': True  # Flag to help frontend handle errors differently
             })
@@ -2203,6 +2204,7 @@ def chat():
         
         return jsonify({
             'response': bot_response_html,  # Send HTML to frontend
+            'raw_markdown': bot_response,  # Send raw markdown for copy functionality
             'timestamp': datetime.now().isoformat()
         })
         
