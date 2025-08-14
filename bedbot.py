@@ -1717,17 +1717,48 @@ def call_bedrock(prompt, context="", pdf_files=None, conversation_history=None, 
                             try:
                                 indexed_count = 0
                                 for pdf_file in pdf_files:
-                                    # Check if we have markdown content for this PDF
+                                    markdown_content = None
+                                    
+                                    # Try to get markdown content from multiple sources
                                     if 'markdown_content' in pdf_file and pdf_file['markdown_content']:
+                                        markdown_content = pdf_file['markdown_content']
+                                        logger.info(f"Using cached markdown content for {pdf_file['filename']}")
+                                    elif USE_S3_BUCKET and 's3_key' in pdf_file:
+                                        # Try to retrieve markdown from S3
+                                        try:
+                                            md_key = pdf_file['s3_key'].replace('.pdf', '.md')
+                                            logger.info(f"Attempting to retrieve markdown from S3: {md_key}")
+                                            response = s3_client.get_object(Bucket=S3_BUCKET_NAME, Key=md_key)
+                                            markdown_content = response['Body'].read().decode('utf-8')
+                                            logger.info(f"Retrieved markdown from S3 for {pdf_file['filename']} ({len(markdown_content)} chars)")
+                                        except ClientError as s3_error:
+                                            logger.warning(f"Could not retrieve markdown from S3 for {pdf_file['filename']}: {s3_error}")
+                                    elif not USE_S3_BUCKET and 'file_path' in pdf_file:
+                                        # Try to read markdown from local file
+                                        try:
+                                            md_path = pdf_file['file_path'].replace('.pdf', '.md')
+                                            if os.path.exists(md_path):
+                                                with open(md_path, 'r', encoding='utf-8') as f:
+                                                    markdown_content = f.read()
+                                                logger.info(f"Retrieved markdown from local file for {pdf_file['filename']} ({len(markdown_content)} chars)")
+                                        except Exception as file_error:
+                                            logger.warning(f"Could not read local markdown for {pdf_file['filename']}: {file_error}")
+                                    
+                                    # If we have markdown content, index it
+                                    if markdown_content:
                                         success = vector_manager.add_document_from_content(
                                             session_id=session['session_id'],
-                                            content=pdf_file['markdown_content'],
+                                            content=markdown_content,
                                             source_filename=pdf_file['filename'],
                                             metadata={'type': 'pdf_markdown', 'indexed_on_demand': True}
                                         )
                                         if success:
                                             indexed_count += 1
                                             logger.info(f"Successfully indexed: {pdf_file['filename']}")
+                                        else:
+                                            logger.warning(f"Failed to index: {pdf_file['filename']}")
+                                    else:
+                                        logger.warning(f"No markdown content available for: {pdf_file['filename']}")
                                 
                                 if indexed_count > 0:
                                     logger.info(f"Successfully indexed {indexed_count} documents for vector store")
