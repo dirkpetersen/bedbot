@@ -1798,7 +1798,27 @@ def call_bedrock(prompt, context="", pdf_files=None, conversation_history=None, 
             api_params = get_bedrock_api_params(current_model, messages, inference_config)
             response = bedrock_client.converse(**api_params)
             
-            return response['output']['message']['content'][0]['text']
+            # Handle different response structures for different models
+            try:
+                return response['output']['message']['content'][0]['text']
+            except (KeyError, IndexError, TypeError) as e:
+                logger.error(f"Unexpected response structure from model {current_model}: {e}")
+                logger.error(f"Full response structure: {json.dumps(response, indent=2, default=str)}")
+                
+                # Try alternative response structure parsing
+                if 'output' in response and 'message' in response['output']:
+                    message = response['output']['message']
+                    if 'content' in message and isinstance(message['content'], list) and len(message['content']) > 0:
+                        content_item = message['content'][0]
+                        logger.info(f"Content item keys: {list(content_item.keys()) if isinstance(content_item, dict) else 'not a dict'}")
+                        
+                        # Try different possible keys
+                        for key in ['text', 'message', 'content', 'response']:
+                            if isinstance(content_item, dict) and key in content_item:
+                                logger.info(f"Found content using key: {key}")
+                                return content_item[key]
+                
+                return f"❌ **Response Parsing Error:** Unable to extract text from model response. Response structure: {type(response)}"
             
         except ClientError as api_error:
             # Check if this is an S3Location validation error (only for initial PDF upload)
