@@ -1482,9 +1482,22 @@ def call_bedrock(prompt, context="", pdf_files=None, conversation_history=None, 
         # Add conversation history if provided (text-only, no document re-uploads)
         if conversation_history:
             logger.info(f"Adding {len(conversation_history)} conversation history entries as text-only")
-            for entry in conversation_history:
-                messages.append({"role": "user", "content": [{"text": entry['user']}]})
-                messages.append({"role": "assistant", "content": [{"text": entry['bot']}]})
+            for i, entry in enumerate(conversation_history):
+                try:
+                    # Validate entry structure
+                    if not isinstance(entry, dict):
+                        logger.warning(f"Skipping conversation history entry {i}: not a dictionary")
+                        continue
+                    
+                    if 'user' not in entry or 'bot' not in entry:
+                        logger.warning(f"Skipping conversation history entry {i}: missing 'user' or 'bot' key")
+                        continue
+                    
+                    messages.append({"role": "user", "content": [{"text": entry['user']}]})
+                    messages.append({"role": "assistant", "content": [{"text": entry['bot']}]})
+                except Exception as e:
+                    logger.error(f"Error processing conversation history entry {i}: {e}")
+                    continue
         
         # Create current message prompt with vector store context if enabled
         vector_context = ""
