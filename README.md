@@ -5,8 +5,8 @@
 BedBot is a powerful AI chat assistant powered by AWS Bedrock that allows you to have intelligent conversations and analyze documents. It supports multiple model providers including Claude, Nova, Llama, DeepSeek, and OpenAI models through Bedrock, with both text-based conversations and document analysis capabilities.
 
 
-<img width="591" height="694" alt="image" src="https://github.com/user-attachments/assets/55520913-c8ea-4533-b747-25cf7325fe58" />
-
+<!-- <img width="591" height="694" alt="image" src="https://github.com/user-attachments/assets/55520913-c8ea-4533-b747-25cf7325fe58" /> -->
+<img width="508" height="689" alt="image" src="https://github.com/user-attachments/assets/d815620b-57d2-460f-b02c-6eef152c809f" />
 
 
 ## Table of Contents
