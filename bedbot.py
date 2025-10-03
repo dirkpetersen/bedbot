@@ -1287,7 +1287,7 @@ def send_bedrock_message(messages):
     """Send a single message to Bedrock and return the response"""
     # Use session-selected model or default
     current_model = session.get('selected_model', BEDROCK_MODEL.split(',')[0].strip())
-    inference_config = {"maxTokens": 1000, "temperature": 0.5, "topP": 0.9}
+    inference_config = {"maxTokens": 1000, "temperature": 0.5}
     
     logger.info(f"send_bedrock_message using model: {current_model}")
     
@@ -1924,8 +1924,7 @@ def call_bedrock(prompt, context="", pdf_files=None, conversation_history=None, 
         
         inference_config = {
             "maxTokens": max_tokens,
-            "temperature": temperature,
-            "topP": 0.9
+            "temperature": temperature
         }
         
         logger.info(f"Sending request to Bedrock with {len(messages)} message entries")
