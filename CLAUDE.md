@@ -42,7 +42,7 @@ python bedbot.py --no-bucket
 python bedbot.py --debug
 
 # Custom model
-python bedbot.py --model us.anthropic.claude-sonnet-4-20250514-v1:0
+python bedbot.py --model us.anthropic.claude-sonnet-4-5-20250929-v1:0
 
 # With vector store enabled
 VECTOR_STORE=1 python bedbot.py
@@ -74,7 +74,7 @@ aws bedrock list-foundation-models --profile bedbot --region us-east-1
 AWS_PROFILE=bedbot
 AWS_DEFAULT_REGION=us-east-1
 SECRET_KEY=your-secret-key-change-this
-BEDROCK_MODEL=us.anthropic.claude-sonnet-4-20250514-v1:0
+BEDROCK_MODEL=us.anthropic.claude-sonnet-4-5-20250929-v1:0
 VECTOR_STORE=0  # Set to 1 to enable, note this should only enable the vector store, the user still needs to activate it with a checkbox 
 PDF_LOCAL_CONVERT=0  # Set to 1 for local PDF processing
 BEDROCK_TIMEOUT=900  # Timeout in seconds

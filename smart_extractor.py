@@ -18,7 +18,7 @@ class SmartExtractor:
     then applies them to full documents for comprehensive extraction
     """
     
-    def __init__(self, bedrock_client, model_id: str = "us.anthropic.claude-sonnet-4-20250514-v1:0"):
+    def __init__(self, bedrock_client, model_id: str = "us.anthropic.claude-sonnet-4-5-20250929-v1:0"):
         """
         Initialize Smart Extractor
         

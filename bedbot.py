@@ -63,7 +63,7 @@ except ImportError as e:
 parser = argparse.ArgumentParser(description='BedBot - AI Chat Assistant')
 parser.add_argument('--no-bucket', action='store_true', help='Use local filesystem instead of S3 bucket')
 parser.add_argument('--debug', action='store_true', help='Enable debug mode to print API messages')
-parser.add_argument('--model', action='store', help='Bedrock model to use', default='us.anthropic.claude-sonnet-4-20250514-v1:0')
+parser.add_argument('--model', action='store', help='Bedrock model to use', default='us.anthropic.claude-sonnet-4-5-20250929-v1:0')
 args = parser.parse_args()
 
 # Configuration
