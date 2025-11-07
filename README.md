@@ -218,7 +218,6 @@ Create a `.env` file in the project directory (optional):
 ```bash
 AWS_PROFILE=bedbot
 AWS_DEFAULT_REGION=us-west-2
-SECRET_KEY=your-secret-key-change-this
 BEDROCK_MODEL=us.anthropic.claude-sonnet-4-5-20250929-v1:0,us.amazon.nova-premier-v1:0
 VECTOR_STORE=0
 PDF_LOCAL_CONVERT=1
@@ -228,7 +227,6 @@ BEDROCK_TIMEOUT=900
 **Environment Variable Details:**
 - `AWS_PROFILE`: AWS profile to use for authentication
 - `AWS_DEFAULT_REGION`: AWS region for Bedrock and S3 services
-- `SECRET_KEY`: Flask session secret key (change for production)
 - `BEDROCK_MODEL`: Default Bedrock model ID to use
 - `VECTOR_STORE`: Enable vector store functionality (0=disabled, 1=enabled)
 - `PDF_LOCAL_CONVERT`: Use local PDF processing instead of Bedrock (0=Bedrock, 1=local)
