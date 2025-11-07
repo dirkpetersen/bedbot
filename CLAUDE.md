@@ -33,8 +33,37 @@ It was developed to ensure that 100s of PDFs can be analysed is a RAG style appl
 
 ## Development Commands
 
+### Initial Setup
+```bash
+# Create and activate virtual environment
+python -m venv .venv
+
+# On Linux/macOS:
+source .venv/bin/activate
+
+# On Windows:
+.venv\Scripts\activate
+
+# Install dependencies (lightweight - core only)
+pip install --no-cache-dir -r requirements.txt
+
+# Optional: Install with vector store support - CPU (includes PyTorch/CUDA ~1.5GB)
+pip install --no-cache-dir -r requirements-vectorstore.txt
+
+# Optional: Install with vector store support - GPU accelerated (requires NVIDIA CUDA 12)
+pip install --no-cache-dir -r requirements-vectorstore-gpu.txt
+```
+
+**Note on `--no-cache-dir`**: Used to prevent pip from caching the large PyTorch/CUDA binaries. This saves local disk space if you're not using the vector store functionality.
+
+**GPU variant**: Use `requirements-vectorstore-gpu.txt` for GPU-accelerated vector search with `faiss-gpu-cu12` instead of `faiss-cpu`.
+- Requires NVIDIA CUDA 12 toolkit installed
+- Uses `faiss-gpu-cu12` package optimized for CUDA 12
+
 ### Running the Application
 ```bash
+# Make sure .venv is activated first!
+
 # Local filesystem mode (no AWS S3)
 python bedbot.py --no-bucket
 
@@ -46,11 +75,6 @@ python bedbot.py --model us.anthropic.claude-sonnet-4-5-20250929-v1:0
 
 # With vector store enabled
 VECTOR_STORE=1 python bedbot.py
-```
-
-### Installation
-```bash
-pip install -r requirements.txt
 ```
 
 ### Testing AWS Configuration

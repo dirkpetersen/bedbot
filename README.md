@@ -166,12 +166,25 @@ If you haven't set up AWS yet, you'll need AWS credentials from your AWS adminis
    cd bedbot
    ```
 
-2. **Install Python dependencies:**
+2. **Create and activate Python virtual environment:**
+   ```bash
+   # Create virtual environment
+   python -m venv .venv
+
+   # Activate it
+   # On Linux/macOS:
+   source .venv/bin/activate
+
+   # On Windows:
+   .venv\Scripts\activate
+   ```
+
+3. **Install Python dependencies:**
    ```bash
    pip install -r requirements.txt
    ```
 
-3. **Install Pandoc for DOCX Support (Required)**
+4. **Install Pandoc for DOCX Support (Required)**
 
    To upload DOCX files, you must install Pandoc for automatic PDF conversion:
 
@@ -189,17 +202,17 @@ If you haven't set up AWS yet, you'll need AWS credentials from your AWS adminis
    **Windows:**
    - Download Pandoc from https://pandoc.org/installing.html
    - Install MiKTeX from https://miktex.org/download
-   
+
    **Optional: Vector Store Dependencies**
    ```bash
-   # For vector store functionality
+   # For vector store functionality (activate .venv first)
    pip install faiss-cpu sentence-transformers
-   
+
    # Or for GPU support (if available)
    pip install faiss-gpu sentence-transformers
    ```
 
-3. **Verify AWS configuration:**
+5. **Verify AWS configuration:**
    ```bash
    aws bedrock list-foundation-models --profile bedbot --region us-east-1
    ```
@@ -646,6 +659,15 @@ Policy: AllowS3BucketsWithPrefix_bedbot
 
 ### Development Setup
 ```bash
+# Create and activate virtual environment
+python -m venv .venv
+
+# On Linux/macOS:
+source .venv/bin/activate
+
+# On Windows:
+.venv\Scripts\activate
+
 # Install development dependencies
 pip install -r requirements.txt
 
