@@ -96,11 +96,11 @@ aws bedrock list-foundation-models --profile bedbot --region us-west-2
 ### Environment Variables (.env file)
 ```bash
 AWS_PROFILE=bedbot
-AWS_DEFAULT_REGION=us-east-1
+AWS_DEFAULT_REGION=us-west-2
 SECRET_KEY=your-secret-key-change-this
 BEDROCK_MODEL=us.anthropic.claude-sonnet-4-5-20250929-v1:0
-VECTOR_STORE=0  # Set to 1 to enable, note this should only enable the vector store, the user still needs to activate it with a checkbox 
-PDF_LOCAL_CONVERT=0  # Set to 1 for local PDF processing
+VECTOR_STORE=0  # Set to 1 to enable, note this should only enable the vector store, the user still needs to activate it with a checkbox
+PDF_LOCAL_CONVERT=1  # Set to 0 for Bedrock native PDF processing
 BEDROCK_TIMEOUT=900  # Timeout in seconds
 ```
 
