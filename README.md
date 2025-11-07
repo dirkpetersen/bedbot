@@ -190,13 +190,18 @@ If you haven't set up AWS yet, you'll need AWS credentials from your AWS adminis
    - Download Pandoc from https://pandoc.org/installing.html
    - Install MiKTeX from https://miktex.org/download
 
-   **Optional: Vector Store Dependencies**
-   ```bash
-   # For vector store functionality (activate .venv first)
-   pip install faiss-cpu sentence-transformers
+4. **Optional: Vector Store Dependencies**
 
-   # Or for GPU support (if available)
-   pip install faiss-gpu sentence-transformers
+   Vector store support is optional. Choose one of the options below (activate .venv first):
+
+   **CPU-based vector store:**
+   ```bash
+   pip install --no-cache-dir -r requirements-vectorstore.txt
+   ```
+
+   **GPU-accelerated vector store (requires NVIDIA CUDA 12):**
+   ```bash
+   pip install --no-cache-dir -r requirements-vectorstore-gpu.txt
    ```
 
 5. **Verify AWS configuration:**
