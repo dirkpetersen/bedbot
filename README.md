@@ -22,7 +22,6 @@ BedBot is a powerful AI chat assistant powered by AWS Bedrock that allows you to
   - [Prerequisites](#prerequisites)
   - [AWS Setup](#aws-setup)
     - [Creating a New AWS Profile](#creating-a-new-aws-profile)
-    - [Requesting Bedrock Model Access](#requesting-bedrock-model-access)
   - [Installation](#installation)
   - [Configuration](#configuration)
     - [Environment Variables](#environment-variables)
@@ -145,18 +144,6 @@ If you haven't set up AWS yet, you'll need AWS credentials from your AWS adminis
    ```bash
    aws configure sso --profile bedbot
    ```
-
-### Requesting Bedrock Model Access
-
-**Important**: In addition to Bedrock permissions, you need to request access to specific models in your AWS account.
-
-1. Go to the AWS Bedrock console
-2. Navigate to "Model access" in the left sidebar
-3. Click "Request model access"
-4. Select the models you want to use (recommended: Claude Sonnet 4, Claude Opus 4, Nova Premier)
-5. Submit the request (usually approved within minutes)
-
-**Video Guide**: [2-minute video on requesting model access](https://www.youtube.com/watch?v=WWHo7Awy0sQ)
 
 ## Installation
 
