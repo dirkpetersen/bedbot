@@ -206,7 +206,7 @@ If you haven't set up AWS yet, you'll need AWS credentials from your AWS adminis
 
 5. **Verify AWS configuration:**
    ```bash
-   aws bedrock list-foundation-models --profile bedbot --region us-east-1
+   aws bedrock list-foundation-models --profile bedbot --region us-west-2
    ```
 
 ## Configuration
@@ -366,7 +366,7 @@ python bedbot.py --model us.anthropic.claude-sonnet-4-5-20250929-v1:0 --debug
 aws configure list --profile bedbot
 
 # Test Bedrock access
-aws bedrock list-foundation-models --profile bedbot --region us-east-1
+aws bedrock list-foundation-models --profile bedbot --region us-west-2
 ```
 
 #### 2. "Model access denied" or "ValidationException"

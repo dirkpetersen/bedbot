@@ -80,10 +80,10 @@ VECTOR_STORE=1 python bedbot.py
 ### Testing AWS Configuration
 ```bash
 # Verify AWS setup
-aws bedrock list-foundation-models --region us-east-1
+aws bedrock list-foundation-models --region us-west-2
 
 # Test specific profile
-aws bedrock list-foundation-models --profile bedbot --region us-east-1
+aws bedrock list-foundation-models --profile bedbot --region us-west-2
 ```
 
 ## Environment Configuration
