@@ -238,11 +238,13 @@ BEDROCK_TIMEOUT=900
 
 BedBot supports various Bedrock models. You can specify the model using the `--model` parameter:
 
-- `us.anthropic.claude-sonnet-4-5-20250929-v1:0` - Latest Claude model with 1M token context
-- `us.amazon.nova-premier-v1:0` - Most capable Nova model  
-- `us.anthropic.claude-opus-4-1-20250805-v1:0` - High-performance Claude model
-- `us.anthropic.claude-3-5-sonnet-20241022-v2:0` - Anthropic's Claude
-- `us.anthropic.claude-3-5-haiku-20241022-v1:0` - Fast Claude model
+- `us.anthropic.claude-sonnet-4-5-20250929-v1:0` - Latest Claude model with 1M token context (default)
+- `us.anthropic.claude-haiku-4-5-20251001-v1:0` - Fast Claude Haiku model with 1M token context
+- `us.anthropic.claude-opus-4-1-20250805-v1:0` - High-performance Claude Opus model
+- `us.amazon.nova-premier-v1:0` - Most capable Amazon Nova model
+- `us.meta.llama4-scout-17b-instruct-v1:0` - Meta Llama 4 Scout model
+- `us.qwen.qwen3-235b-a22b-2507-v1:0` - Alibaba Qwen 3 model
+- `us.deepseek.r1-v1:0` - DeepSeek R1 model
 
 ## Usage
 
