@@ -149,7 +149,7 @@ If you haven't set up AWS yet, you'll need AWS credentials from your AWS adminis
 
 1. **Clone or download BedBot:**
    ```bash
-   git clone <repository-url>
+   git clone https://github.com/dirkpetersen/bedbot
    cd bedbot
    ```
 
