@@ -3908,7 +3908,7 @@ if __name__ == '__main__':
             logger.info("🔍 VECTOR STORE: Disabled")
             
         # Get port from environment variable or use default
-        port = int(os.getenv('PORT', '5000'))
+        port = int(os.getenv('PORT', '5001'))
 
         logger.info(f"🧠 DEFAULT MODEL: {BEDROCK_MODEL.split(',')[0].strip()}")
         logger.info(f"🌐 SERVER: http://localhost:{port}")

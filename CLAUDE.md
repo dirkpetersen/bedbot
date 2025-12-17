@@ -99,7 +99,7 @@ aws bedrock list-foundation-models --profile bedbot --region us-west-2
 ```bash
 AWS_PROFILE=bedbot
 AWS_DEFAULT_REGION=us-west-2
-PORT=5000  # Flask server port (default: 5000)
+PORT=5001  # Flask server port (default: 5001)
 BEDROCK_MODEL=us.anthropic.claude-sonnet-4-5-20250929-v1:0
 VECTOR_STORE=0  # Set to 1 to enable, note this should only enable the vector store, the user still needs to activate it with a checkbox
 PDF_LOCAL_CONVERT=1  # Set to 0 for Bedrock native PDF processing
