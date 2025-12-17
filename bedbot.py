@@ -3907,11 +3907,14 @@ if __name__ == '__main__':
         else:
             logger.info("🔍 VECTOR STORE: Disabled")
             
+        # Get port from environment variable or use default
+        port = int(os.getenv('PORT', '5000'))
+
         logger.info(f"🧠 DEFAULT MODEL: {BEDROCK_MODEL.split(',')[0].strip()}")
-        logger.info("🌐 SERVER: http://localhost:5000")
+        logger.info(f"🌐 SERVER: http://localhost:{port}")
         logger.info("=" * 60)
-        
-        app.run(debug=True, host='0.0.0.0', port=5000)
+
+        app.run(debug=True, host='0.0.0.0', port=port)
     except KeyboardInterrupt:
         # This shouldn't be reached due to signal handler, but kept as fallback
         logger.info("Application interrupted")
