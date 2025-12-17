@@ -238,7 +238,7 @@ BedBot supports various Bedrock models. You can specify the model using the `--m
 
 - `us.anthropic.claude-sonnet-4-5-20250929-v1:0` - Latest Claude model with 1M token context (default)
 - `us.anthropic.claude-haiku-4-5-20251001-v1:0` - Fast Claude Haiku model with 1M token context
-- `us.anthropic.claude-opus-4-1-20250805-v1:0` - High-performance Claude Opus model
+- `global.anthropic.claude-opus-4-5-20251101-v1:0` - Most capable Claude Opus model (global cross-region)
 - `us.amazon.nova-premier-v1:0` - Most capable Amazon Nova model
 - `us.meta.llama4-scout-17b-instruct-v1:0` - Meta Llama 4 Scout model
 - `us.qwen.qwen3-235b-a22b-2507-v1:0` - Alibaba Qwen 3 model
